@@ -218,90 +218,130 @@
 <!-- ══ SETUP PAGE ══ -->
 <div id="page-setup" class="page active">
 
-  <!-- 1: Course & Scorecard -->
-  <div class="card">
-    <div class="card-title">⛳ Course & Scorecard</div>
-    <div style="margin-bottom:10px;">
-      <input id="course-name-input" type="text" placeholder="Course name"
-        style="width:100%;padding:8px 11px;background:rgba(0,0,0,0.3);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;box-sizing:border-box;"
-        oninput="courseName=this.value;saveState()">
+  <!-- Stepper indicator -->
+  <div style="display:flex;align-items:flex-start;justify-content:center;gap:0;margin-bottom:18px;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div id="step-dot-1" onclick="goToSetupStep(1)"
+        style="width:30px;height:30px;border-radius:50%;background:var(--green-bright);color:#0a1a0d;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:default;transition:all 0.2s;flex-shrink:0;">1</div>
+      <div id="step-label-1" style="font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:var(--green-bright);white-space:nowrap;">Course</div>
     </div>
-    <div style="position:relative;margin-bottom:10px;">
-      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;">🔍</span>
-      <input id="course-search-input" type="text" placeholder="Search saved courses…" autocomplete="off"
-        style="width:100%;padding:8px 11px 8px 32px;background:rgba(0,0,0,0.25);border:1px solid rgba(245,240,232,0.12);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;box-sizing:border-box;"
-        onfocus="onCourseSearchFocus()" oninput="onCourseSearchInput(this.value)" onblur="onCourseSearchBlur()">
-      <div id="course-search-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#162018;border:1px solid rgba(78,186,122,0.22);border-radius:9px;max-height:210px;overflow-y:auto;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
+    <div id="step-line-1" style="height:2px;width:44px;background:rgba(245,240,232,0.12);margin-top:14px;flex-shrink:0;transition:background 0.3s;"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div id="step-dot-2" onclick="goToSetupStep(2)"
+        style="width:30px;height:30px;border-radius:50%;background:rgba(245,240,232,0.1);color:rgba(245,240,232,0.3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:default;transition:all 0.2s;flex-shrink:0;">2</div>
+      <div id="step-label-2" style="font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:rgba(245,240,232,0.3);white-space:nowrap;">Game</div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-      <div style="flex:1;height:1px;background:rgba(245,240,232,0.08);"></div>
-      <span style="font-size:10px;color:rgba(245,240,232,0.22);letter-spacing:1px;text-transform:uppercase;">or scan new</span>
-      <div style="flex:1;height:1px;background:rgba(245,240,232,0.08);"></div>
+    <div id="step-line-2" style="height:2px;width:44px;background:rgba(245,240,232,0.12);margin-top:14px;flex-shrink:0;transition:background 0.3s;"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div id="step-dot-3" onclick="goToSetupStep(3)"
+        style="width:30px;height:30px;border-radius:50%;background:rgba(245,240,232,0.1);color:rgba(245,240,232,0.3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:default;transition:all 0.2s;flex-shrink:0;">3</div>
+      <div id="step-label-3" style="font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:rgba(245,240,232,0.3);white-space:nowrap;">Players</div>
     </div>
-    <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:10px;">Take or choose a photo — AI reads all tee data, then pick your tees.</div>
-    <input type="file" id="scorecard-img-input" accept="image/*" style="display:none" onchange="handleScorecardImage(event)">
-    <input type="file" id="scorecard-img-camera" accept="image/*" capture="environment" style="display:none" onchange="handleScorecardImage(event)">
+  </div>
+
+  <!-- ── Step 1: Course & Scorecard ── -->
+  <div id="setup-step-1">
+    <div class="card">
+      <div class="card-title">⛳ Course & Scorecard</div>
+      <div style="margin-bottom:10px;">
+        <input id="course-name-input" type="text" placeholder="Course name"
+          style="width:100%;padding:8px 11px;background:rgba(0,0,0,0.3);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;box-sizing:border-box;"
+          oninput="courseName=this.value;saveState()">
+      </div>
+      <div style="position:relative;margin-bottom:10px;">
+        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;">🔍</span>
+        <input id="course-search-input" type="text" placeholder="Search saved courses…" autocomplete="off"
+          style="width:100%;padding:8px 11px 8px 32px;background:rgba(0,0,0,0.25);border:1px solid rgba(245,240,232,0.12);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;box-sizing:border-box;"
+          onfocus="onCourseSearchFocus()" oninput="onCourseSearchInput(this.value)" onblur="onCourseSearchBlur()">
+        <div id="course-search-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#162018;border:1px solid rgba(78,186,122,0.22);border-radius:9px;max-height:210px;overflow-y:auto;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="flex:1;height:1px;background:rgba(245,240,232,0.08);"></div>
+        <span style="font-size:10px;color:rgba(245,240,232,0.22);letter-spacing:1px;text-transform:uppercase;">or scan new</span>
+        <div style="flex:1;height:1px;background:rgba(245,240,232,0.08);"></div>
+      </div>
+      <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:10px;">Take or choose a photo — AI reads all tee data, then pick your tees.</div>
+      <input type="file" id="scorecard-img-input" accept="image/*" style="display:none" onchange="handleScorecardImage(event)">
+      <input type="file" id="scorecard-img-camera" accept="image/*" capture="environment" style="display:none" onchange="handleScorecardImage(event)">
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" style="margin-bottom:0;" onclick="document.getElementById('scorecard-img-input').click()">🖼️ Choose Photo</button>
+        <button class="btn-primary" style="margin-bottom:0;" onclick="document.getElementById('scorecard-img-camera').click()">📷 Take Photo</button>
+      </div>
+      <div id="scan-status" style="margin-top:10px;display:none;">
+        <div id="scan-preview-wrap" style="margin-bottom:10px;border-radius:10px;overflow:hidden;max-height:160px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);">
+          <img id="scan-preview" style="max-width:100%;max-height:160px;object-fit:contain;" />
+        </div>
+        <div id="scan-message" style="text-align:center;font-size:12px;padding:8px;border-radius:8px;"></div>
+      </div>
+      <div id="tee-select-section" style="display:none;margin-top:12px;">
+        <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:7px;">Select Your Tees</div>
+        <div id="tee-options" style="display:flex;gap:7px;flex-wrap:wrap;"></div>
+      </div>
+    </div>
+    <!-- Hole confirmation — revealed after tee is applied -->
+    <div id="course-confirm-section" style="display:none;">
+      <div class="card">
+        <div class="card-title">📋 Confirm Holes</div>
+        <div id="course-confirm-table"></div>
+      </div>
+    </div>
+    <button class="btn-primary" style="width:100%;" onclick="showSetupStep(2)">Next — Game Format →</button>
+  </div>
+
+  <!-- ── Step 2: Game Format ── -->
+  <div id="setup-step-2" style="display:none;">
+    <div class="card">
+      <div class="card-title">🎮 Game Format</div>
+      <div id="game-format-list"></div>
+    </div>
     <div style="display:flex;gap:8px;">
-      <button class="btn-primary" style="margin-bottom:0;" onclick="document.getElementById('scorecard-img-input').click()">🖼️ Choose Photo</button>
-      <button class="btn-primary" style="margin-bottom:0;" onclick="document.getElementById('scorecard-img-camera').click()">📷 Take Photo</button>
-    </div>
-    <div id="scan-status" style="margin-top:10px;display:none;">
-      <div id="scan-preview-wrap" style="margin-bottom:10px;border-radius:10px;overflow:hidden;max-height:160px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);">
-        <img id="scan-preview" style="max-width:100%;max-height:160px;object-fit:contain;" />
-      </div>
-      <div id="scan-message" style="text-align:center;font-size:12px;padding:8px;border-radius:8px;"></div>
-    </div>
-    <div id="tee-select-section" style="display:none;margin-top:12px;">
-      <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:7px;">Select Your Tees</div>
-      <div id="tee-options" style="display:flex;gap:7px;flex-wrap:wrap;"></div>
+      <button class="btn-secondary" style="flex:1;" onclick="showSetupStep(1)">← Back</button>
+      <button class="btn-primary" style="flex:2;" onclick="showSetupStep(3)">Next — Players →</button>
     </div>
   </div>
 
-  <!-- 2: Game Format -->
-  <div class="card">
-    <div class="card-title">🎮 Game Format</div>
-    <div id="game-format-list"></div>
-  </div>
-
-  <!-- 3: Players & Handicaps -->
-  <div class="card">
-    <div class="card-title">👥 Players & Handicaps</div>
-    <div id="player-setup-list"></div>
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(245,240,232,0.08);">
-      <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:8px;">Daily Handicap — WHS</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-        <div>
-          <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-bottom:4px;">Course Rating</div>
-          <input id="course-rating-input" type="number" step="0.1" min="60" max="80"
-            class="hcp-input" style="width:100%;box-sizing:border-box;"
-            oninput="courseRating=parseFloat(this.value)||71;saveState();renderDailyHcps()" inputmode="decimal">
+  <!-- ── Step 3: Players & Teams ── -->
+  <div id="setup-step-3" style="display:none;">
+    <div class="card">
+      <div class="card-title">👥 Players & Handicaps</div>
+      <div id="player-setup-list"></div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(245,240,232,0.08);">
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:8px;">Daily Handicap — WHS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-bottom:4px;">Course Rating</div>
+            <input id="course-rating-input" type="number" step="0.1" min="60" max="80"
+              class="hcp-input" style="width:100%;box-sizing:border-box;"
+              oninput="courseRating=parseFloat(this.value)||71;saveState();renderDailyHcps()" inputmode="decimal">
+          </div>
+          <div>
+            <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-bottom:4px;">Slope Rating</div>
+            <input id="slope-rating-input" type="number" step="1" min="55" max="155"
+              class="hcp-input" style="width:100%;box-sizing:border-box;"
+              oninput="slopeRating=parseInt(this.value)||113;saveState();renderDailyHcps()" inputmode="numeric">
+          </div>
         </div>
-        <div>
-          <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-bottom:4px;">Slope Rating</div>
-          <input id="slope-rating-input" type="number" step="1" min="55" max="155"
-            class="hcp-input" style="width:100%;box-sizing:border-box;"
-            oninput="slopeRating=parseInt(this.value)||113;saveState();renderDailyHcps()" inputmode="numeric">
-        </div>
+        <div id="daily-hcp-list"></div>
       </div>
-      <div id="daily-hcp-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🤝 Teams</div>
+      <div id="team-setup-list"></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-secondary" style="flex:1;" onclick="showSetupStep(2)">← Back</button>
+      <button class="btn-primary" style="flex:2;" onclick="showPage('score')">Start Scoring →</button>
+    </div>
+    <div style="margin-top:8px;">
+      <button class="btn-secondary" style="width:100%;" onclick="showPage('course')">Edit Holes</button>
+    </div>
+    <div style="margin-top:10px;text-align:center;">
+      <button onclick="resetState()" style="background:none;border:none;color:rgba(245,240,232,0.25);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;padding:6px;">
+        🔄 Reset & start new round
+      </button>
     </div>
   </div>
 
-  <!-- 4: Teams -->
-  <div class="card">
-    <div class="card-title">🤝 Teams</div>
-    <div id="team-setup-list"></div>
-  </div>
-
-  <div style="display:flex;gap:8px;">
-    <button class="btn-secondary" style="flex:1;" onclick="showPage('course')">Edit Holes</button>
-    <button class="btn-primary" style="flex:2;" onclick="showPage('score')">Start Scoring →</button>
-  </div>
-  <div style="margin-top:10px;text-align:center;">
-    <button onclick="resetState()" style="background:none;border:none;color:rgba(245,240,232,0.25);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;padding:6px;">
-      🔄 Reset & start new round
-    </button>
-  </div>
 </div>
 
 <!-- ══ COURSE PAGE ══ -->
@@ -795,6 +835,7 @@ let courseRating    = 71.0;
 let slopeRating     = 113;
 let teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
 let activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true };
+let setupStep       = 1;
 
 PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
 for (let i = 0; i < 18; i++) compWinners[i] = { ctp: '', ld: '' };
@@ -861,28 +902,104 @@ function teamTotals() {
 }
 
 // ══════════════════════════════════════════════
-// SETUP PAGE
+// SETUP PAGE — WIZARD
 // ══════════════════════════════════════════════
+function showSetupStep(n) {
+  setupStep = n;
+  [1,2,3].forEach(i => {
+    const el = document.getElementById('setup-step-' + i);
+    if (el) el.style.display = i === n ? '' : 'none';
+  });
+  updateStepper();
+  if (n === 2) renderGameFormat();
+  if (n === 3) {
+    document.getElementById('player-setup-list').innerHTML = PLAYERS.map(p => `
+      <div class="player-row">
+        <div class="player-dot" style="background:${p.color}"></div>
+        <div class="player-name-label">${p.name}</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-left:auto;">
+          <span style="font-size:10px;color:rgba(245,240,232,0.4);">HI</span>
+          <input class="hcp-input" type="number" step="0.1" min="0" max="54" value="${handicaps[p.id]}"
+            oninput="handicaps['${p.id}']=parseFloat(this.value)||0;saveState();renderDailyHcps()" inputmode="decimal">
+        </div>
+      </div>`).join('');
+    const crEl = document.getElementById('course-rating-input');
+    const srEl = document.getElementById('slope-rating-input');
+    if (crEl) crEl.value = courseRating;
+    if (srEl) srEl.value = slopeRating;
+    renderDailyHcps();
+    renderTeamSetup();
+  }
+}
+
+function goToSetupStep(n) {
+  if (n >= setupStep) return;
+  showSetupStep(n);
+}
+
+function updateStepper() {
+  [1,2,3].forEach(i => {
+    const dot   = document.getElementById('step-dot-' + i);
+    const label = document.getElementById('step-label-' + i);
+    if (!dot) return;
+    const isDone   = i < setupStep;
+    const isActive = i === setupStep;
+    dot.style.background = (isDone || isActive) ? 'var(--green-bright)' : 'rgba(245,240,232,0.1)';
+    dot.style.color      = (isDone || isActive) ? '#0a1a0d'             : 'rgba(245,240,232,0.3)';
+    dot.style.cursor     = isDone ? 'pointer' : 'default';
+    dot.textContent      = isDone ? '✓' : String(i);
+    if (label) label.style.color = (isDone || isActive) ? 'var(--green-bright)' : 'rgba(245,240,232,0.3)';
+  });
+  [1,2].forEach(i => {
+    const line = document.getElementById('step-line-' + i);
+    if (line) line.style.background = i < setupStep ? 'var(--green-bright)' : 'rgba(245,240,232,0.12)';
+  });
+}
+
+function showCourseConfirm() {
+  const section = document.getElementById('course-confirm-section');
+  const tableEl = document.getElementById('course-confirm-table');
+  if (!section || !tableEl) return;
+  const rows = Array.from({length: 9}, (_, i) => `
+    <tr>
+      <td style="padding:5px 6px;text-align:center;font-weight:600;color:rgba(245,240,232,0.7);">${i+1}</td>
+      <td style="padding:5px 6px;text-align:center;">${pars[i]}</td>
+      <td style="padding:5px 6px;text-align:center;color:rgba(201,168,76,0.7);">${indices[i]}</td>
+      <td style="width:10px;border-left:1px solid rgba(245,240,232,0.06);"></td>
+      <td style="padding:5px 6px;text-align:center;font-weight:600;color:rgba(245,240,232,0.7);">${i+10}</td>
+      <td style="padding:5px 6px;text-align:center;">${pars[i+9]}</td>
+      <td style="padding:5px 6px;text-align:center;color:rgba(201,168,76,0.7);">${indices[i+9]}</td>
+    </tr>`).join('');
+  tableEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead>
+      <tr style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);">
+        <th style="padding:4px 6px;text-align:center;font-weight:500;">H</th>
+        <th style="padding:4px 6px;text-align:center;font-weight:500;">Par</th>
+        <th style="padding:4px 6px;text-align:center;font-weight:500;">SI</th>
+        <th></th>
+        <th style="padding:4px 6px;text-align:center;font-weight:500;">H</th>
+        <th style="padding:4px 6px;text-align:center;font-weight:500;">Par</th>
+        <th style="padding:4px 6px;text-align:center;font-weight:500;">SI</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr style="font-size:10px;border-top:1px solid rgba(245,240,232,0.1);">
+        <td colspan="2" style="padding:5px 6px;text-align:right;color:rgba(245,240,232,0.35);">Front</td>
+        <td style="padding:5px 6px;text-align:center;font-weight:700;">${pars.slice(0,9).reduce((a,b)=>a+b,0)}</td>
+        <td></td>
+        <td colspan="2" style="padding:5px 6px;text-align:right;color:rgba(245,240,232,0.35);">Back</td>
+        <td style="padding:5px 6px;text-align:center;font-weight:700;">${pars.slice(9).reduce((a,b)=>a+b,0)}</td>
+      </tr>
+    </tfoot>
+  </table>`;
+  section.style.display = '';
+}
+
 function renderSetup() {
   const cnEl = document.getElementById('course-name-input');
   if (cnEl) cnEl.value = courseName;
-  document.getElementById('player-setup-list').innerHTML = PLAYERS.map(p => `
-    <div class="player-row">
-      <div class="player-dot" style="background:${p.color}"></div>
-      <div class="player-name-label">${p.name}</div>
-      <div style="display:flex;align-items:center;gap:4px;margin-left:auto;">
-        <span style="font-size:10px;color:rgba(245,240,232,0.4);">HI</span>
-        <input class="hcp-input" type="number" step="0.1" min="0" max="54" value="${handicaps[p.id]}"
-          oninput="handicaps['${p.id}']=parseFloat(this.value)||0;saveState();renderDailyHcps()" inputmode="decimal">
-      </div>
-    </div>`).join('');
-  const crEl = document.getElementById('course-rating-input');
-  const srEl = document.getElementById('slope-rating-input');
-  if (crEl) crEl.value = courseRating;
-  if (srEl) srEl.value = slopeRating;
-  renderGameFormat();
-  renderDailyHcps();
-  renderTeamSetup();
+  updateStepper();
 }
 
 function renderGameFormat() {
@@ -1347,10 +1464,11 @@ function showPage(name) {
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   document.querySelectorAll('.nav-tab')[PAGES.indexOf(name)].classList.add('active');
-  if (name==='course') renderCourseTable();
-  if (name==='score')  renderHole();
-  if (name==='card')   renderScorecard();
-  if (name==='teams')  renderTeams();
+  if (name==='setup')   { showSetupStep(1); renderSetup(); }
+  if (name==='course')  renderCourseTable();
+  if (name==='score')   renderHole();
+  if (name==='card')    renderScorecard();
+  if (name==='teams')   renderTeams();
   if (name==='comps')   renderComps();
   if (name==='history') renderHistoryPage();
 }
@@ -1576,6 +1694,7 @@ function applyTee(tee, btn) {
       base64ToBlob(lastScanImage.base64, lastScanImage.mimeType), lastScanImage.mimeType
     );
   }
+  showCourseConfirm();
 }
 
 async function scanScorecardImage(base64Data, mimeType) {
