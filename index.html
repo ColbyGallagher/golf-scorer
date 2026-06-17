@@ -154,6 +154,8 @@
   .score-btn:active { background: rgba(255,255,255,0.1); }
   .score-display { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; color: var(--cream); min-width: 34px; text-align: center; }
   .score-points { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 600; min-width: 34px; text-align: center; padding: 4px 7px; border-radius: 6px; flex-shrink: 0; }
+  .three-putt-btn { padding: 3px 7px; border-radius: 8px; background: rgba(245,240,232,0.05); border: 1px solid rgba(245,240,232,0.1); color: rgba(245,240,232,0.3); font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 600; cursor: pointer; letter-spacing: 0.3px; flex-shrink: 0; }
+  .three-putt-on { background: rgba(204,85,85,0.15) !important; border-color: rgba(204,85,85,0.4) !important; color: #e07070 !important; }
   .pts-null { color: rgba(245,240,232,0.2); }
   .pts-0 { color: var(--red); background: rgba(224,85,85,0.12); }
   .pts-1 { color: rgba(245,240,232,0.6); background: rgba(255,255,255,0.06); }
@@ -385,6 +387,7 @@
     <div style="font-size:10px;color:rgba(245,240,232,0.3);margin-top:4px;margin-bottom:10px;" id="sc-progress-label">0 / 18 holes played</div>
     <div class="scorecard-wrap"><table class="sc-table" id="scorecard-table"></table></div>
   </div>
+  <div id="three-putt-summary"></div>
 </div>
 
 <!-- ══ TEAMS PAGE ══ -->
@@ -492,6 +495,15 @@ function entryToRow(entry) {
     indices: entry.indices,
     scores: entry.scores,
     comp_winners: entry.compWinners,
+    team_assignments: entry.teamAssignments,
+    active_games: entry.activeGames,
+    wolf_order: entry.wolfOrder,
+    wolf_holes: entry.wolfHoles,
+    course_name: entry.courseName,
+    course_rating: entry.courseRating,
+    slope_rating: entry.slopeRating,
+    selected_tee: entry.selectedTee,
+    three_putts: entry.threePutts,
   };
 }
 
@@ -506,6 +518,15 @@ function rowToEntry(row) {
     indices: row.indices,
     scores: row.scores,
     compWinners: row.comp_winners,
+    teamAssignments: row.team_assignments,
+    activeGames: row.active_games,
+    wolfOrder: row.wolf_order,
+    wolfHoles: row.wolf_holes,
+    courseName: row.course_name,
+    courseRating: row.course_rating,
+    slopeRating: row.slope_rating,
+    selectedTee: row.selected_tee,
+    threePutts: row.three_putts,
   };
 }
 
@@ -525,6 +546,15 @@ async function saveCurrentRound() {
     indices: [...indices],
     scores: JSON.parse(JSON.stringify(scores)),
     compWinners: JSON.parse(JSON.stringify(compWinners)),
+    teamAssignments: JSON.parse(JSON.stringify(teamAssignments)),
+    activeGames: JSON.parse(JSON.stringify(activeGames)),
+    wolfOrder: [...wolfOrder],
+    wolfHoles: JSON.parse(JSON.stringify(wolfHoles)),
+    courseName,
+    courseRating,
+    slopeRating,
+    selectedTee,
+    threePutts: JSON.parse(JSON.stringify(threePutts)),
   };
 
   const hist = loadHistory();
@@ -668,9 +698,12 @@ function renderHistoryPage() {
       const pts = r.scores[p.id].reduce((s,v,h) => s + (stablefordPointsFrom(v, r.pars[h], p.id, h, r.handicaps, r.indices) ?? 0), 0);
       return { p, pts };
     });
-    const totA = playerScores.filter(x=>x.p.team==='A').reduce((s,x)=>s+x.pts,0);
-    const totB = playerScores.filter(x=>x.p.team==='B').reduce((s,x)=>s+x.pts,0);
-    const winner = totA > totB ? 'Colby & Mitch 🏆' : totB > totA ? 'Dave & Scott 🏆' : 'All Square';
+    const ta = r.teamAssignments || Object.fromEntries(PLAYERS.map(p=>[p.id,p.team]));
+    const totA = playerScores.filter(x=>ta[x.p.id]==='A').reduce((s,x)=>s+x.pts,0);
+    const totB = playerScores.filter(x=>ta[x.p.id]==='B').reduce((s,x)=>s+x.pts,0);
+    const teamAName = PLAYERS.filter(p=>ta[p.id]==='A').map(p=>p.name).join(' & ') || 'Team A';
+    const teamBName = PLAYERS.filter(p=>ta[p.id]==='B').map(p=>p.name).join(' & ') || 'Team B';
+    const winner = totA > totB ? teamAName + ' 🏆' : totB > totA ? teamBName + ' 🏆' : 'All Square';
     return `<div class="history-round" onclick="openHistoryDetail(${r.id})">
       <div class="history-round-header">
         <div>
@@ -723,13 +756,16 @@ function openHistoryDetail(id) {
     <td class="sc-total" style="font-size:11px;">${r.scores[p.id].reduce((s,v,h)=>s+(stablefordPointsFrom(v,r.pars[h],p.id,h,r.handicaps,r.indices)??0),0)}</td>
   </tr>`).join('');
 
-  const totA = PLAYERS.filter(p=>p.team==='A').reduce((s,p)=>s+r.scores[p.id].reduce((ss,v,h)=>ss+(stablefordPointsFrom(v,r.pars[h],p.id,h,r.handicaps,r.indices)??0),0),0);
-  const totB = PLAYERS.filter(p=>p.team==='B').reduce((s,p)=>s+r.scores[p.id].reduce((ss,v,h)=>ss+(stablefordPointsFrom(v,r.pars[h],p.id,h,r.handicaps,r.indices)??0),0),0);
+  const rta = r.teamAssignments || Object.fromEntries(PLAYERS.map(p=>[p.id,p.team]));
+  const totA = PLAYERS.filter(p=>rta[p.id]==='A').reduce((s,p)=>s+r.scores[p.id].reduce((ss,v,h)=>ss+(stablefordPointsFrom(v,r.pars[h],p.id,h,r.handicaps,r.indices)??0),0),0);
+  const totB = PLAYERS.filter(p=>rta[p.id]==='B').reduce((s,p)=>s+r.scores[p.id].reduce((ss,v,h)=>ss+(stablefordPointsFrom(v,r.pars[h],p.id,h,r.handicaps,r.indices)??0),0),0);
+  const hdTeamAName = PLAYERS.filter(p=>rta[p.id]==='A').map(p=>p.name).join(' & ') || 'Team A';
+  const hdTeamBName = PLAYERS.filter(p=>rta[p.id]==='B').map(p=>p.name).join(' & ') || 'Team B';
   const diff = totA - totB;
   const resultBanner = diff > 0
-    ? `<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-a);">Colby & Mitch</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`
+    ? `<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-a);">${hdTeamAName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`
     : diff < 0
-    ? `<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-b);">Dave & Scott</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`
+    ? `<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-b);">${hdTeamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`
     : `<div class="result-banner" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);"><div class="result-label">Result</div><div class="result-text" style="color:var(--gold);">All Square</div></div>`;
 
   const hcpLine = PLAYERS.map(p=>`${p.name} HCP ${r.handicaps[p.id]}`).join(' · ');
@@ -768,7 +804,7 @@ function saveState() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
       handicaps, pars, indices, scores, compWinners, currentHole, courseName, selectedTee,
-      courseRating, slopeRating, teamAssignments, activeGames, wolfOrder, wolfHoles, gameActive
+      courseRating, slopeRating, teamAssignments, activeGames, wolfOrder, wolfHoles, gameActive, threePutts
     }));
     const el = document.getElementById('save-indicator');
     if (el) { el.style.color='rgba(78,186,122,1)'; setTimeout(()=>{ el.style.color='rgba(78,186,122,0.5)'; }, 600); }
@@ -795,6 +831,7 @@ function loadState() {
     if (s.wolfOrder)    wolfOrder   = s.wolfOrder;
     if (s.wolfHoles)    wolfHoles   = s.wolfHoles;
     if (typeof s.gameActive === 'boolean') gameActive = s.gameActive;
+    if (s.threePutts)   threePutts  = s.threePutts;
     return true;
   } catch(e) { return false; }
 }
@@ -805,6 +842,7 @@ function doReset() {
   pars         = HOLE_DATA.map(h => h.par);
   indices      = HOLE_DATA.map(h => h.idx);
   PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
+  PLAYERS.forEach(p => { threePutts[p.id] = Array(18).fill(false); });
   for (let i = 0; i < 18; i++) compWinners[i] = { ctp: '', ld: '' };
   currentHole     = 0;
   courseName      = 'Shortland Waters';
@@ -901,8 +939,10 @@ let wolfOrder       = PLAYERS.map(p => p.id);
 let wolfHoles       = Array(18).fill(null).map(() => ({ mode: null, partnerId: null }));
 let gameActive      = false;
 let setupStep       = 1;
+let threePutts      = {};
 
 PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
+PLAYERS.forEach(p => { threePutts[p.id] = Array(18).fill(false); });
 for (let i = 0; i < 18; i++) compWinners[i] = { ctp: '', ld: '' };
 
 // ── Stroke allocation using hole stroke index ──
@@ -1586,6 +1626,7 @@ function renderHole() {
         <button class="score-btn" onclick="adjustScore('${p.id}',${h},1)">+</button>
       </div>
       <span class="score-points ${ptsClass(pts)}" id="sp-${p.id}">${ptsLabel(pts)}</span>
+      <button id="tp-${p.id}" class="three-putt-btn${threePutts[p.id][h] ? ' three-putt-on' : ''}" onclick="toggleThreePutt('${p.id}',${h})">3P</button>
     </div>`;
   }).join('');
 
@@ -1604,6 +1645,13 @@ function adjustScore(pid, hole, delta) {
   renderHoleDots();
   if (activeGames.wolf) renderWolfHoleSection(hole);
   triggerAutoSaveIfHoleComplete(hole);
+}
+
+function toggleThreePutt(pid, hole) {
+  threePutts[pid][hole] = !threePutts[pid][hole];
+  saveState();
+  const btn = document.getElementById('tp-' + pid);
+  if (btn) btn.className = 'three-putt-btn' + (threePutts[pid][hole] ? ' three-putt-on' : '');
 }
 
 function adjustPar(delta) {
@@ -1675,6 +1723,26 @@ function renderScorecard() {
       </tr>
       ${playerRows}
     </tbody>`;
+
+  const tpEl = document.getElementById('three-putt-summary');
+  if (tpEl) {
+    const anyPutts = PLAYERS.some(p => threePutts[p.id] && threePutts[p.id].some(Boolean));
+    tpEl.innerHTML = anyPutts ? `<div class="card" style="margin-top:12px;">
+      <div class="card-title">⛳ 3-Putt Summary</div>
+      ${PLAYERS.map(p => {
+        const tp = threePutts[p.id] || Array(18).fill(false);
+        const total = tp.filter(Boolean).length;
+        const frontCt = tp.slice(0,9).filter(Boolean).length;
+        const backCt  = tp.slice(9).filter(Boolean).length;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(245,240,232,0.05);">
+          <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
+          <span style="flex:1;font-size:12px;font-weight:500;">${p.name}</span>
+          <span style="font-size:10px;color:rgba(245,240,232,0.4);">F:${frontCt} · B:${backCt}</span>
+          <span style="font-size:14px;font-weight:700;min-width:20px;text-align:right;color:${total>0?'#e07070':'rgba(245,240,232,0.25)'};">${total}</span>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+  }
 }
 
 // ══════════════════════════════════════════════
