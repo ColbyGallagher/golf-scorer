@@ -249,17 +249,7 @@
   <!-- Scan card -->
   <div class="card">
     <div class="card-title">📷 Scan Scorecard</div>
-    <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:12px;">Take or choose a photo of the physical scorecard and AI will read the pars and stroke indices automatically.</div>
-    <div style="margin-bottom:12px;">
-      <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:7px;">Tee Colour</div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;">
-        <button class="tee-btn active" data-tee="yellow" onclick="selectTee(this,'yellow')" style="background:rgba(255,215,0,0.18);border:2px solid rgba(255,215,0,0.6);color:#ffe566;">● Yellow</button>
-        <button class="tee-btn" data-tee="white" onclick="selectTee(this,'white')" style="background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.25);color:rgba(245,240,232,0.7);">● White</button>
-        <button class="tee-btn" data-tee="blue" onclick="selectTee(this,'blue')" style="background:rgba(85,153,204,0.15);border:2px solid rgba(85,153,204,0.4);color:#88bbee;">● Blue</button>
-        <button class="tee-btn" data-tee="red" onclick="selectTee(this,'red')" style="background:rgba(224,85,85,0.15);border:2px solid rgba(224,85,85,0.4);color:#f08080;">● Red</button>
-        <button class="tee-btn" data-tee="black" onclick="selectTee(this,'black')" style="background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.12);color:rgba(245,240,232,0.4);">● Black</button>
-      </div>
-    </div>
+    <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:12px;">Take or choose a photo of the physical scorecard — AI will read all tee data, then you pick your tees.</div>
     <input type="file" id="scorecard-img-input" accept="image/*" style="display:none" onchange="handleScorecardImage(event)">
     <input type="file" id="scorecard-img-camera" accept="image/*" capture="environment" style="display:none" onchange="handleScorecardImage(event)">
     <div style="display:flex;gap:8px;">
@@ -271,6 +261,10 @@
         <img id="scan-preview" style="max-width:100%;max-height:160px;object-fit:contain;" />
       </div>
       <div id="scan-message" style="text-align:center;font-size:12px;padding:8px;border-radius:8px;"></div>
+    </div>
+    <div id="tee-select-section" style="display:none;margin-top:12px;">
+      <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:7px;">Select Your Tees</div>
+      <div id="tee-options" style="display:flex;gap:7px;flex-wrap:wrap;"></div>
     </div>
   </div>
 
@@ -1109,57 +1103,59 @@ function showPage(name) {
 }
 
 // ══════════════════════════════════════════════
-// SCORECARD SCAN — photo → AI → pars & indices
+// SCORECARD SCAN — photo → AI → pick tees → apply
 // ══════════════════════════════════════════════
-function selectTee(btn, tee) {
-  selectedTee = tee;
-  saveState();
-  document.querySelectorAll('.tee-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-}
+let lastScanResult = null;
+let lastScanImage  = null;
+let lastScanSaved  = false;
+
+const TEE_STYLES = {
+  yellow: { bg: 'rgba(255,215,0,0.18)',   border: 'rgba(255,215,0,0.6)',    color: '#ffe566' },
+  white:  { bg: 'rgba(255,255,255,0.08)', border: 'rgba(255,255,255,0.25)', color: 'rgba(245,240,232,0.7)' },
+  blue:   { bg: 'rgba(85,153,204,0.15)',  border: 'rgba(85,153,204,0.4)',   color: '#88bbee' },
+  red:    { bg: 'rgba(224,85,85,0.15)',   border: 'rgba(224,85,85,0.4)',    color: '#f08080' },
+  black:  { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.12)', color: 'rgba(245,240,232,0.4)' },
+  gold:   { bg: 'rgba(201,168,76,0.18)',  border: 'rgba(201,168,76,0.6)',   color: '#c9a84c' },
+};
 
 function handleScorecardImage(event) {
   const file = event.target.files[0];
   if (!file) return;
-  const statusEl = document.getElementById('scan-status');
-  const msgEl = document.getElementById('scan-message');
-  const preview = document.getElementById('scan-preview');
+  const statusEl  = document.getElementById('scan-status');
+  const msgEl     = document.getElementById('scan-message');
+  const preview   = document.getElementById('scan-preview');
+  const teeSection = document.getElementById('tee-select-section');
   statusEl.style.display = 'block';
+  teeSection.style.display = 'none';
+  lastScanResult = null;
+  lastScanImage  = null;
+  lastScanSaved  = false;
   const reader = new FileReader();
   reader.onload = async (e) => {
     const dataUrl = e.target.result;
     preview.src = dataUrl;
-    const base64 = dataUrl.split(',')[1];
+    const base64   = dataUrl.split(',')[1];
     const mimeType = file.type || 'image/jpeg';
     msgEl.style.background = 'rgba(201,168,76,0.1)';
     msgEl.style.color = 'var(--gold)';
-    msgEl.textContent = `🔍 Reading scorecard…`;
+    msgEl.textContent = '🔍 Reading scorecard…';
     try {
-      const result = await scanScorecardImage(base64, mimeType);
-      const teeName = selectedTee.toLowerCase();
-      const teeHoles = result.tees && result.tees[teeName];
-      if (!teeHoles || teeHoles.length !== 18) {
-        const available = result.tees ? Object.keys(result.tees).join(', ') : 'none';
-        throw new Error(`${selectedTee} tee not found on scorecard (found: ${available || 'none'}) — try a clearer photo or select a different tee`);
-      }
-      teeHoles.forEach((h, i) => {
-        if (h.par >= 3 && h.par <= 5) pars[i] = h.par;
-        if (h.index >= 1 && h.index <= 18) indices[i] = h.index;
-      });
+      const result   = await scanScorecardImage(base64, mimeType);
+      const tees     = result.tees || {};
+      const teeNames = Object.keys(tees).filter(t => tees[t] && tees[t].length === 18);
+      if (teeNames.length === 0) throw new Error('Could not read any tee data — try a clearer photo');
+      lastScanResult = result;
+      lastScanImage  = { base64, mimeType };
       if (result.courseName) {
         courseName = result.courseName;
         const ni = document.getElementById('course-name-input');
         if (ni) ni.value = courseName;
         updateHeader();
       }
-      saveState();
-      renderCourseTable();
-      const par = pars.reduce((a,b)=>a+b,0);
-      const teeCount = result.tees ? Object.keys(result.tees).length : 1;
       msgEl.style.background = 'rgba(78,186,122,0.12)';
       msgEl.style.color = 'var(--green-bright)';
-      msgEl.textContent = `✅ Loaded! ${result.courseName || 'Course'} · ${selectedTee} tees · Par ${par} · ${teeCount} tee set${teeCount !== 1 ? 's' : ''} saved`;
-      saveScorecardToCloud(result.courseName || courseName, selectedTee, result.tees || {}, base64ToBlob(base64, mimeType), mimeType);
+      msgEl.textContent = `✅ ${result.courseName || 'Scorecard'} scanned · ${teeNames.length} tee set${teeNames.length !== 1 ? 's' : ''} found — select yours below`;
+      renderTeeOptions(tees, teeNames);
     } catch(err) {
       msgEl.style.background = 'rgba(224,85,85,0.1)';
       msgEl.style.color = 'var(--red)';
@@ -1168,6 +1164,52 @@ function handleScorecardImage(event) {
   };
   reader.readAsDataURL(file);
   event.target.value = '';
+}
+
+function renderTeeOptions(tees, teeNames) {
+  const section   = document.getElementById('tee-select-section');
+  const container = document.getElementById('tee-options');
+  container.innerHTML = '';
+  teeNames.forEach(name => {
+    const s   = TEE_STYLES[name] || { bg: 'rgba(255,255,255,0.08)', border: 'rgba(255,255,255,0.2)', color: 'var(--cream)' };
+    const btn = document.createElement('button');
+    btn.className    = 'tee-btn';
+    btn.dataset.tee  = name;
+    btn.style.cssText = `background:${s.bg};border:2px solid ${s.border};color:${s.color};`;
+    btn.textContent  = `● ${name.charAt(0).toUpperCase() + name.slice(1)}`;
+    btn.onclick = () => applyTee(name, btn);
+    container.appendChild(btn);
+  });
+  section.style.display = 'block';
+}
+
+function applyTee(tee, btn) {
+  if (!lastScanResult) return;
+  const holes = lastScanResult.tees[tee];
+  if (!holes || holes.length !== 18) return;
+  holes.forEach((h, i) => {
+    if (h.par >= 3 && h.par <= 5) pars[i] = h.par;
+    if (h.index >= 1 && h.index <= 18) indices[i] = h.index;
+  });
+  selectedTee = tee;
+  saveState();
+  renderCourseTable();
+  document.querySelectorAll('#tee-options .tee-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const par   = pars.reduce((a, b) => a + b, 0);
+  const msgEl = document.getElementById('scan-message');
+  if (msgEl) {
+    msgEl.style.background = 'rgba(78,186,122,0.12)';
+    msgEl.style.color = 'var(--green-bright)';
+    msgEl.textContent = `✅ ${tee.charAt(0).toUpperCase() + tee.slice(1)} tees loaded · Par ${par}`;
+  }
+  if (!lastScanSaved && lastScanImage) {
+    lastScanSaved = true;
+    saveScorecardToCloud(
+      lastScanResult.courseName || courseName, tee, lastScanResult.tees,
+      base64ToBlob(lastScanImage.base64, lastScanImage.mimeType), lastScanImage.mimeType
+    );
+  }
 }
 
 async function scanScorecardImage(base64Data, mimeType) {
