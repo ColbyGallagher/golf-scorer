@@ -960,40 +960,55 @@ function showCourseConfirm() {
   const section = document.getElementById('course-confirm-section');
   const tableEl = document.getElementById('course-confirm-table');
   if (!section || !tableEl) return;
+  const parInp = (val, idx) =>
+    `<input type="number" inputmode="numeric" min="3" max="5" value="${val}"
+      style="width:36px;text-align:center;background:rgba(0,0,0,0.28);border:1px solid rgba(245,240,232,0.1);border-radius:5px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:3px 2px;outline:none;-moz-appearance:textfield;"
+      oninput="pars[${idx}]=parseInt(this.value)||pars[${idx}];saveState();updateConfirmTotals()">`;
+  const siInp = (val, idx) =>
+    `<input type="number" inputmode="numeric" min="1" max="18" value="${val}"
+      style="width:36px;text-align:center;background:rgba(0,0,0,0.28);border:1px solid rgba(201,168,76,0.18);border-radius:5px;color:rgba(201,168,76,0.85);font-family:'DM Sans',sans-serif;font-size:12px;padding:3px 2px;outline:none;-moz-appearance:textfield;"
+      oninput="indices[${idx}]=parseInt(this.value)||indices[${idx}];saveState()">`;
   const rows = Array.from({length: 9}, (_, i) => `
     <tr>
-      <td style="padding:5px 6px;text-align:center;font-weight:600;color:rgba(245,240,232,0.7);">${i+1}</td>
-      <td style="padding:5px 6px;text-align:center;">${pars[i]}</td>
-      <td style="padding:5px 6px;text-align:center;color:rgba(201,168,76,0.7);">${indices[i]}</td>
-      <td style="width:10px;border-left:1px solid rgba(245,240,232,0.06);"></td>
-      <td style="padding:5px 6px;text-align:center;font-weight:600;color:rgba(245,240,232,0.7);">${i+10}</td>
-      <td style="padding:5px 6px;text-align:center;">${pars[i+9]}</td>
-      <td style="padding:5px 6px;text-align:center;color:rgba(201,168,76,0.7);">${indices[i+9]}</td>
+      <td style="padding:4px 2px;text-align:center;font-size:11px;color:rgba(245,240,232,0.45);">${i+1}</td>
+      <td style="padding:4px 3px;text-align:center;">${parInp(pars[i], i)}</td>
+      <td style="padding:4px 3px;text-align:center;">${siInp(indices[i], i)}</td>
+      <td style="width:8px;border-left:1px solid rgba(245,240,232,0.06);"></td>
+      <td style="padding:4px 2px;text-align:center;font-size:11px;color:rgba(245,240,232,0.45);">${i+10}</td>
+      <td style="padding:4px 3px;text-align:center;">${parInp(pars[i+9], i+9)}</td>
+      <td style="padding:4px 3px;text-align:center;">${siInp(indices[i+9], i+9)}</td>
     </tr>`).join('');
-  tableEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+  tableEl.innerHTML = `<table style="width:100%;border-collapse:collapse;">
     <thead>
       <tr style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);">
-        <th style="padding:4px 6px;text-align:center;font-weight:500;">H</th>
-        <th style="padding:4px 6px;text-align:center;font-weight:500;">Par</th>
-        <th style="padding:4px 6px;text-align:center;font-weight:500;">SI</th>
+        <th style="padding:4px 2px;text-align:center;font-weight:500;">H</th>
+        <th style="padding:4px 3px;text-align:center;font-weight:500;">Par</th>
+        <th style="padding:4px 3px;text-align:center;font-weight:500;">SI</th>
         <th></th>
-        <th style="padding:4px 6px;text-align:center;font-weight:500;">H</th>
-        <th style="padding:4px 6px;text-align:center;font-weight:500;">Par</th>
-        <th style="padding:4px 6px;text-align:center;font-weight:500;">SI</th>
+        <th style="padding:4px 2px;text-align:center;font-weight:500;">H</th>
+        <th style="padding:4px 3px;text-align:center;font-weight:500;">Par</th>
+        <th style="padding:4px 3px;text-align:center;font-weight:500;">SI</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
     <tfoot>
       <tr style="font-size:10px;border-top:1px solid rgba(245,240,232,0.1);">
-        <td colspan="2" style="padding:5px 6px;text-align:right;color:rgba(245,240,232,0.35);">Front</td>
-        <td style="padding:5px 6px;text-align:center;font-weight:700;">${pars.slice(0,9).reduce((a,b)=>a+b,0)}</td>
+        <td colspan="2" style="padding:5px 3px;text-align:right;color:rgba(245,240,232,0.35);">Front</td>
+        <td id="confirm-front-total" style="padding:5px 3px;text-align:center;font-weight:700;">${pars.slice(0,9).reduce((a,b)=>a+b,0)}</td>
         <td></td>
-        <td colspan="2" style="padding:5px 6px;text-align:right;color:rgba(245,240,232,0.35);">Back</td>
-        <td style="padding:5px 6px;text-align:center;font-weight:700;">${pars.slice(9).reduce((a,b)=>a+b,0)}</td>
+        <td colspan="2" style="padding:5px 3px;text-align:right;color:rgba(245,240,232,0.35);">Back</td>
+        <td id="confirm-back-total" style="padding:5px 3px;text-align:center;font-weight:700;">${pars.slice(9).reduce((a,b)=>a+b,0)}</td>
       </tr>
     </tfoot>
   </table>`;
   section.style.display = '';
+}
+
+function updateConfirmTotals() {
+  const f = document.getElementById('confirm-front-total');
+  const b = document.getElementById('confirm-back-total');
+  if (f) f.textContent = pars.slice(0,9).reduce((a,b)=>a+b,0);
+  if (b) b.textContent = pars.slice(9).reduce((a,b)=>a+b,0);
 }
 
 function renderSetup() {
