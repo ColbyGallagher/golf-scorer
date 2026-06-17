@@ -361,11 +361,15 @@
   <div style="padding:14px;" id="hd-body"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ══════════════════════════════════════════════
 // API — Cloudflare Worker proxy (keeps the API key server-side)
 // After deploying the worker, replace this URL with your worker URL.
 const WORKER_URL = 'https://golf-scorer-api.colbyg41.workers.dev';
+const SUPABASE_URL = 'https://sdaaavfbzlyrzcwtrgmo.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkYWFhdmZiemx5cnpjd3RyZ21vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NjA3OTYsImV4cCI6MjA5NzIzNjc5Nn0.-RmJLosGjaq95cyk7m2IOXETvYKt-Oxs5gTBxcNY0Ug';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ══════════════════════════════════════════════
 // COURSE DATA — from physical scorecard (June 2026)
@@ -412,7 +416,36 @@ function saveHistoryData(hist) {
   try { localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(hist)); } catch(e) {}
 }
 
-const DRIVE_FOLDER_ID = '1DgZMM4qhoPkvpEQdjojceZP1Rcn1Wdnn';
+// ══════════════════════════════════════════════
+// SUPABASE — cloud storage for saved rounds
+// ══════════════════════════════════════════════
+function entryToRow(entry) {
+  return {
+    id: entry.id,
+    label: entry.label,
+    date: entry.date,
+    holes_played: entry.holesPlayed,
+    handicaps: entry.handicaps,
+    pars: entry.pars,
+    indices: entry.indices,
+    scores: entry.scores,
+    comp_winners: entry.compWinners,
+  };
+}
+
+function rowToEntry(row) {
+  return {
+    id: row.id,
+    label: row.label,
+    date: row.date,
+    holesPlayed: row.holes_played,
+    handicaps: row.handicaps,
+    pars: row.pars,
+    indices: row.indices,
+    scores: row.scores,
+    compWinners: row.comp_winners,
+  };
+}
 
 async function saveCurrentRound() {
   const holesPlayed = Array.from({length:18},(_,h)=>PLAYERS.some(p=>scores[p.id][h]>0)).filter(Boolean).length;
@@ -432,135 +465,65 @@ async function saveCurrentRound() {
     compWinners: JSON.parse(JSON.stringify(compWinners)),
   };
 
-  // Save locally first
   const hist = loadHistory();
   hist.unshift(entry);
   saveHistoryData(hist);
   renderHistoryPage();
 
-  // Then save to Google Drive
-  setSaveStatus('saving');
+  setCloudStatus('saving');
   try {
-    await saveToDrive(entry);
-    setSaveStatus('saved');
+    const { error } = await db.from('rounds').upsert(entryToRow(entry));
+    if (error) throw error;
+    setCloudStatus('saved');
   } catch(e) {
-    setSaveStatus('error');
-    console.error('Drive save failed:', e);
+    setCloudStatus('error');
+    console.error('Supabase save failed:', e);
   }
 }
 
-function setSaveStatus(state) {
-  const el = document.getElementById('drive-status');
+function setCloudStatus(state) {
+  const el = document.getElementById('cloud-status');
   if (!el) return;
   if (state === 'saving') {
-    el.innerHTML = '<span style="color:var(--gold)">☁️ Saving to Google Drive…</span>';
+    el.innerHTML = '<span style="color:var(--gold)">☁️ Saving to cloud…</span>';
   } else if (state === 'saved') {
-    el.innerHTML = '<span style="color:var(--green-bright)">✅ Saved to Google Drive</span>';
-    setTimeout(()=>{ el.innerHTML=''; renderHistoryPage(); }, 3000);
+    el.innerHTML = '<span style="color:var(--green-bright)">✅ Saved to cloud</span>';
+    setTimeout(() => { el.innerHTML = ''; renderHistoryPage(); }, 3000);
   } else if (state === 'error') {
-    el.innerHTML = '<span style="color:var(--red)">⚠️ Drive save failed — saved locally only</span>';
-    setTimeout(()=>{ el.innerHTML=''; }, 4000);
+    el.innerHTML = '<span style="color:var(--red)">⚠️ Cloud save failed — saved locally</span>';
+    setTimeout(() => { el.innerHTML = ''; }, 4000);
   }
 }
 
-async function saveToDrive(entry) {
-  const safeName = entry.label.replace(/[^a-zA-Z0-9 _-]/g,'').trim() || 'Round';
-  const fileName = `${safeName} — ${entry.date.slice(0,10)}.json`;
-  const fileContent = JSON.stringify(entry, null, 2);
-
-  const response = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      messages: [{
-        role: 'user',
-        content: `Use the Google Drive MCP to create a file in folder ID "${DRIVE_FOLDER_ID}" with:
-- title: "${fileName}"
-- contentMimeType: "application/json"
-- disableConversionToGoogleType: true
-- textContent: ${JSON.stringify(fileContent)}
-
-Respond only with JSON: {"success": true, "fileId": "..."} or {"success": false, "error": "..."}`
-      }],
-      mcp_servers: [{
-        type: 'url',
-        url: 'https://drivemcp.googleapis.com/mcp/v1',
-        name: 'google-drive'
-      }]
-    })
-  });
-
-  const data = await response.json();
-  const text = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-  let result;
-  try {
-    const clean = text.replace(/```json|```/g,'').trim();
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    result = jsonMatch ? JSON.parse(jsonMatch[0]) : { success: false };
-  } catch(e) { result = { success: false, error: e.message }; }
-
-  if (!result.success) throw new Error(result.error || 'Unknown error');
-  return result;
-}
-
-async function syncFromDrive() {
+async function syncFromCloud() {
   const btn = document.getElementById('sync-btn');
   if (btn) { btn.textContent = '⏳ Syncing…'; btn.disabled = true; }
   try {
-    const response = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
-        messages: [{
-          role: 'user',
-          content: `Search Google Drive for all .json files in folder ID "${DRIVE_FOLDER_ID}". For each file found, download its content. Return ONLY a JSON array of the file contents (each is a golf round object). If no files found, return []. No explanation, just the JSON array.`
-        }],
-        mcp_servers: [{
-          type: 'url',
-          url: 'https://drivemcp.googleapis.com/mcp/v1',
-          name: 'google-drive'
-        }]
-      })
-    });
-    const data = await response.json();
-    const text = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    const clean = text.replace(/```json|```/g,'').trim();
-    const arrMatch = clean.match(/\[[\s\S]*\]/);
-    if (!arrMatch) throw new Error('No array found');
-    const driveRounds = JSON.parse(arrMatch[0]);
-    if (!Array.isArray(driveRounds)) throw new Error('Not an array');
-
-    // Merge with local: Drive is source of truth, add any missing locally
+    const { data, error } = await db.from('rounds').select('*').order('id', { ascending: false });
+    if (error) throw error;
     const local = loadHistory();
-    const localIds = new Set(local.map(r=>r.id));
+    const localIds = new Set(local.map(r => r.id));
     let added = 0;
-    for (const r of driveRounds) {
-      if (r && r.id && !localIds.has(r.id)) {
-        local.push(r);
-        added++;
-      }
+    for (const row of data) {
+      const entry = rowToEntry(row);
+      if (!localIds.has(entry.id)) { local.push(entry); added++; }
     }
-    local.sort((a,b)=>b.id-a.id);
+    local.sort((a, b) => b.id - a.id);
     saveHistoryData(local);
     renderHistoryPage();
-    if (btn) { btn.textContent = `☁️ Synced (${added} new)`; btn.disabled = false; }
-    setTimeout(()=>{ if(btn){btn.textContent='☁️ Sync from Drive';} }, 3000);
+    if (btn) { btn.textContent = `✅ Synced (${added} new)`; btn.disabled = false; }
+    setTimeout(() => { if (btn) btn.textContent = '☁️ Sync from cloud'; }, 3000);
   } catch(e) {
     if (btn) { btn.textContent = '⚠️ Sync failed'; btn.disabled = false; }
     console.error('Sync failed:', e);
-    setTimeout(()=>{ if(btn){btn.textContent='☁️ Sync from Drive';} }, 3000);
+    setTimeout(() => { if (btn) btn.textContent = '☁️ Sync from cloud'; }, 3000);
   }
 }
 
 // ══════════════════════════════════════════════
-// DRIVE AUTO-SAVE — fires when a hole is complete
+// LOCAL AUTO-SAVE — saves to localStorage after each complete hole
 // ══════════════════════════════════════════════
 let _autoSaveTimer = null;
-let _autoSaveFileId = null; // Track the in-progress file ID for overwriting
 
 function holeIsComplete(h) {
   return PLAYERS.every(p => scores[p.id][h] > 0);
@@ -568,89 +531,23 @@ function holeIsComplete(h) {
 
 function triggerAutoSaveIfHoleComplete(hole) {
   if (!holeIsComplete(hole)) return;
-  // Debounce — wait 1.5s after last tap before saving
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(() => autoSaveToDrive(hole), 1500);
-}
-
-async function autoSaveToDrive(hole) {
-  const holesPlayed = Array.from({length:18},(_,h)=>PLAYERS.some(p=>scores[p.id][h]>0)).filter(Boolean).length;
-  if (holesPlayed === 0) return;
-
-  setHeaderSaveStatus('saving');
-
-  const entry = {
-    id: 'autosave',
-    label: `In Progress — ${formatDateShort(new Date())}`,
-    date: new Date().toISOString(),
-    holesPlayed,
-    isAutoSave: true,
-    lastHole: hole + 1,
-    handicaps: JSON.parse(JSON.stringify(handicaps)),
-    pars: [...pars],
-    indices: [...indices],
-    scores: JSON.parse(JSON.stringify(scores)),
-    compWinners: JSON.parse(JSON.stringify(compWinners)),
-  };
-
-  try {
-    const fileContent = JSON.stringify(entry, null, 2);
-    const fileName = 'In Progress — Auto Save.json';
-
-    // If we already know the file ID, overwrite it; otherwise create new
-    const prompt = _autoSaveFileId
-      ? `Use the Google Drive MCP to update file ID "${_autoSaveFileId}" with new textContent. Upload the file with title "${fileName}", contentMimeType "application/json", disableConversionToGoogleType true, textContent: ${JSON.stringify(fileContent)}. Actually, just create a new file in folder "${DRIVE_FOLDER_ID}" since update isn't supported — but first delete file ID "${_autoSaveFileId}" if possible. Respond only with JSON: {"success": true, "fileId": "..."} or {"success": false, "error": "..."}`
-      : `Use the Google Drive MCP to create a file in folder ID "${DRIVE_FOLDER_ID}" with title "${fileName}", contentMimeType "application/json", disableConversionToGoogleType true, textContent: ${JSON.stringify(fileContent)}. Respond only with JSON: {"success": true, "fileId": "..."} or {"success": false, "error": "..."}`;
-
-    const response = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }],
-        mcp_servers: [{ type: 'url', url: 'https://drivemcp.googleapis.com/mcp/v1', name: 'google-drive' }]
-      })
-    });
-
-    const data = await response.json();
-    const text = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    const clean = text.replace(/```json|```/g,'').trim();
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : { success: false };
-
-    if (result.success && result.fileId) {
-      _autoSaveFileId = result.fileId;
-      setHeaderSaveStatus('saved', hole + 1);
-    } else {
-      setHeaderSaveStatus('error');
-    }
-  } catch(e) {
-    console.error('Auto-save failed:', e);
-    setHeaderSaveStatus('error');
-  }
+  _autoSaveTimer = setTimeout(() => {
+    saveState();
+    setHeaderSaveStatus('saved', hole + 1);
+  }, 1500);
 }
 
 function setHeaderSaveStatus(state, hole) {
   const el = document.getElementById('save-indicator');
   if (!el) return;
-  if (state === 'saving') {
-    el.innerHTML = '☁️ Saving…';
-    el.style.color = 'rgba(201,168,76,0.8)';
-  } else if (state === 'saved') {
-    el.innerHTML = `✅ Saved after H${hole}`;
+  if (state === 'saved') {
+    el.innerHTML = `✅ Saved H${hole}`;
     el.style.color = 'rgba(78,186,122,1)';
     setTimeout(() => {
       el.innerHTML = '💾 Auto-saving';
       el.style.color = 'rgba(78,186,122,0.5)';
     }, 3000);
-  } else if (state === 'error') {
-    el.innerHTML = '⚠️ Drive save failed';
-    el.style.color = 'rgba(224,85,85,0.9)';
-    setTimeout(() => {
-      el.innerHTML = '💾 Auto-saving';
-      el.style.color = 'rgba(78,186,122,0.5)';
-    }, 4000);
   }
 }
 
@@ -689,21 +586,18 @@ function renderHistoryPage() {
   const holesPlayed = Array.from({length:18},(_,h)=>PLAYERS.some(p=>scores[p.id][h]>0)).filter(Boolean).length;
 
   const saveBtn = holesPlayed > 0
-    ? `<button class="save-round-btn" onclick="saveCurrentRound()">💾 Save to Drive (${holesPlayed} holes)</button>`
+    ? `<button class="save-round-btn" onclick="saveCurrentRound()">☁️ Save to cloud (${holesPlayed} holes)</button>`
     : `<div style="text-align:center;font-size:11px;color:rgba(245,240,232,0.25);margin-bottom:8px;">Enter scores on the Score tab, then save here.</div>`;
 
-  const driveBar = `<div id="drive-status" style="text-align:center;font-size:11px;min-height:18px;margin-bottom:6px;"></div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button id="sync-btn" class="btn-secondary" style="flex:1;font-size:11px;" onclick="syncFromDrive()">☁️ Sync from Drive</button>
-      <a href="https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}" target="_blank" style="flex:1;" >
-        <button class="btn-secondary" style="width:100%;font-size:11px;">📂 Open Drive Folder</button>
-      </a>
+  const cloudBar = `<div id="cloud-status" style="text-align:center;font-size:11px;min-height:18px;margin-bottom:6px;"></div>
+    <div style="margin-bottom:12px;">
+      <button id="sync-btn" class="btn-secondary" style="width:100%;font-size:11px;" onclick="syncFromCloud()">☁️ Sync from cloud</button>
     </div>`;
 
-  document.getElementById('save-round-area').innerHTML = saveBtn + driveBar;
+  document.getElementById('save-round-area').innerHTML = saveBtn + cloudBar;
 
   if (!hist.length) {
-    document.getElementById('history-list').innerHTML = `<div class="empty-state" style="padding:40px 20px;">No saved rounds yet.<br>Tap "Save to Drive" after a round.</div>`;
+    document.getElementById('history-list').innerHTML = `<div class="empty-state" style="padding:40px 20px;">No saved rounds yet.<br>Tap "Save to cloud" after a round.</div>`;
     return;
   }
 
