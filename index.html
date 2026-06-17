@@ -724,7 +724,7 @@ function saveState() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
       handicaps, pars, indices, scores, compWinners, currentHole, courseName, selectedTee,
-      courseRating, slopeRating, teamAssignments
+      courseRating, slopeRating, teamAssignments, activeGames
     }));
     const el = document.getElementById('save-indicator');
     if (el) { el.style.color='rgba(78,186,122,1)'; setTimeout(()=>{ el.style.color='rgba(78,186,122,0.5)'; }, 600); }
@@ -747,6 +747,7 @@ function loadState() {
     if (typeof s.courseRating === 'number') courseRating    = s.courseRating;
     if (typeof s.slopeRating  === 'number') slopeRating     = s.slopeRating;
     if (s.teamAssignments)                  teamAssignments = s.teamAssignments;
+    if (s.activeGames)                      activeGames     = { ...activeGames, ...s.activeGames };
     return true;
   } catch(e) { return false; }
 }
@@ -765,6 +766,7 @@ function resetState() {
   courseRating    = 71.0;
   slopeRating     = 113;
   teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
+  activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true };
   renderSetup();
   showPage('setup');
 }
@@ -780,6 +782,7 @@ let selectedTee  = 'yellow';
 let courseRating    = 71.0;
 let slopeRating     = 113;
 let teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
+let activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true };
 
 PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
 for (let i = 0; i < 18; i++) compWinners[i] = { ctp: '', ld: '' };
@@ -873,33 +876,32 @@ function renderSetup() {
 function renderGameFormat() {
   const el = document.getElementById('game-format-list');
   if (!el) return;
-  el.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:7px;">
-      <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:rgba(78,186,122,0.06);border:1px solid rgba(78,186,122,0.15);border-radius:9px;">
-        <span style="font-size:15px;">🏌️</span>
-        <div>
-          <div style="font-size:13px;font-weight:600;">Individual Stableford</div>
-          <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:1px;">All players score Stableford points</div>
-        </div>
-        <span style="margin-left:auto;color:var(--green-bright);font-size:11px;font-weight:700;">ON</span>
+  function row(emoji, title, desc, key, locked) {
+    const on = locked || activeGames[key];
+    return `<div ${locked ? '' : `onclick="toggleGame('${key}')"`}
+      style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;cursor:${locked?'default':'pointer'};user-select:none;-webkit-tap-highlight-color:transparent;transition:background 0.15s,border 0.15s;
+        ${on ? 'background:rgba(78,186,122,0.07);border:1px solid rgba(78,186,122,0.18);' : 'background:rgba(245,240,232,0.02);border:1px solid rgba(245,240,232,0.07);'}">
+      <span style="font-size:15px;transition:opacity 0.15s;${on?'':'opacity:0.35;'}">${emoji}</span>
+      <div style="transition:opacity 0.15s;${on?'':'opacity:0.4;'}">
+        <div style="font-size:13px;font-weight:600;">${title}</div>
+        <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:1px;">${desc}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:rgba(78,186,122,0.06);border:1px solid rgba(78,186,122,0.15);border-radius:9px;">
-        <span style="font-size:15px;">✖️</span>
-        <div>
-          <div style="font-size:13px;font-weight:600;">Team Multiplier</div>
-          <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:1px;">Team totals × each other per hole</div>
-        </div>
-        <span style="margin-left:auto;color:var(--green-bright);font-size:11px;font-weight:700;">ON</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:rgba(78,186,122,0.06);border:1px solid rgba(78,186,122,0.15);border-radius:9px;">
-        <span style="font-size:15px;">🎯</span>
-        <div>
-          <div style="font-size:13px;font-weight:600;">CTP & Long Drive</div>
-          <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:1px;">Closest to pin (par 3) · Long drive (par 5)</div>
-        </div>
-        <span style="margin-left:auto;color:var(--green-bright);font-size:11px;font-weight:700;">ON</span>
-      </div>
+      <span style="margin-left:auto;font-size:11px;font-weight:700;transition:color 0.15s;${on?'color:var(--green-bright);':'color:rgba(245,240,232,0.18);'}">${locked ? '●' : (on ? 'ON' : 'OFF')}</span>
     </div>`;
+  }
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:7px;">
+    ${row('🏌️','Individual Stableford','All players score Stableford points per hole',null,true)}
+    ${row('✖️','Team Multiplier','Team totals × each other per hole','teamMultiplier')}
+    ${row('🃏','Skins','Hole-by-hole winner takes the skin; ties carry over','skins')}
+    ${row('🏆','Nassau','Team A vs B — front 9, back 9 and overall','nassau')}
+    ${row('🎯','CTP & Long Drive','Closest to pin (par 3) · Long drive (par 5)','ctpLd')}
+  </div>`;
+}
+
+function toggleGame(key) {
+  activeGames[key] = !activeGames[key];
+  saveState();
+  renderGameFormat();
 }
 
 function renderTeamSetup() {
@@ -936,6 +938,105 @@ function setTeam(pid, team) {
   teamAssignments[pid] = team;
   saveState();
   renderTeamSetup();
+}
+
+function calcSkins() {
+  const results = [];
+  let carry = 0;
+  for (let h = 0; h < 18; h++) {
+    if (!PLAYERS.some(p => scores[p.id][h] > 0)) {
+      results.push({ hole: h, unplayed: true }); continue;
+    }
+    const pts = PLAYERS.map(p => ({ p, pts: stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0 }));
+    const max = Math.max(...pts.map(x => x.pts));
+    const winners = pts.filter(x => x.pts === max && max > 0);
+    if (winners.length === 1) {
+      results.push({ hole: h, winner: winners[0].p, value: 1 + carry, carry });
+      carry = 0;
+    } else {
+      results.push({ hole: h, winner: null, tied: max > 0, carry });
+      if (max > 0) carry++;
+    }
+  }
+  return results;
+}
+
+function calcNassau() {
+  function teamPts(team, from, to) {
+    return PLAYERS.filter(p => teamAssignments[p.id] === team)
+      .reduce((s, p) => {
+        for (let h = from; h < to; h++) s += stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0;
+        return s;
+      }, 0);
+  }
+  return {
+    front: { a: teamPts('A',0,9),  b: teamPts('B',0,9) },
+    back:  { a: teamPts('A',9,18), b: teamPts('B',9,18) },
+    full:  { a: teamPts('A',0,18), b: teamPts('B',0,18) },
+  };
+}
+
+function renderSkinsSection() {
+  const skins = calcSkins();
+  const totals = {};
+  PLAYERS.forEach(p => { totals[p.id] = 0; });
+  skins.filter(s => s.winner).forEach(s => { totals[s.winner.id] += s.value; });
+  const board = [...PLAYERS].sort((a,b) => totals[b.id] - totals[a.id]);
+  const rows = skins.filter(s => !s.unplayed).map(s => {
+    let txt = s.winner
+      ? `<span style="color:${s.winner.color};font-weight:600;">${s.winner.name}</span>${s.value>1?` <span style="color:var(--gold);font-size:10px;">(${s.value} skins)</span>`:''}`
+      : s.tied
+        ? `<span style="color:rgba(245,240,232,0.35);">Tied — carries →</span>`
+        : `<span style="color:rgba(245,240,232,0.18);">No score</span>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
+      <span style="font-family:'DM Mono',monospace;color:var(--gold);min-width:28px;">H${s.hole+1}</span>${txt}</div>`;
+  }).join('');
+  return `<div class="card">
+    <div class="card-title">🃏 Skins</div>
+    <div style="display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;">
+      ${board.map(p=>`<div style="display:flex;align-items:center;gap:5px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
+        <span style="font-size:12px;">${p.name}</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;color:${totals[p.id]>0?'var(--cream)':'rgba(245,240,232,0.2)'};">${totals[p.id]}</span>
+      </div>`).join('')}
+    </div>
+    ${rows||'<div class="empty-state">No holes scored yet</div>'}
+  </div>`;
+}
+
+function renderNassauSection() {
+  const n = calcNassau();
+  const teamAName = PLAYERS.filter(p=>teamAssignments[p.id]==='A').map(p=>p.name).join(' & ')||'Team A';
+  const teamBName = PLAYERS.filter(p=>teamAssignments[p.id]==='B').map(p=>p.name).join(' & ')||'Team B';
+  let legsA = 0, legsB = 0;
+  function leg(label, a, b) {
+    const win = a>b?'A':b>a?'B':null;
+    if (win==='A') legsA++; else if (win==='B') legsB++;
+    const col = win==='A'?'var(--team-a)':win==='B'?'var(--team-b)':'var(--gold)';
+    const name = win==='A'?teamAName:win==='B'?teamBName:'Halved';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;">
+      <span style="font-size:11px;color:rgba(245,240,232,0.35);min-width:52px;">${label}</span>
+      <span style="font-family:'DM Mono',monospace;color:var(--team-a);font-size:12px;">${a}pts</span>
+      <span style="font-size:12px;font-weight:700;color:${col};">${name}</span>
+      <span style="font-family:'DM Mono',monospace;color:var(--team-b);font-size:12px;">${b}pts</span>
+    </div>`;
+  }
+  const frontHTML = leg('Front 9', n.front.a, n.front.b);
+  const backHTML  = leg('Back 9',  n.back.a,  n.back.b);
+  const fullHTML  = leg('Overall', n.full.a,  n.full.b);
+  return `<div class="card">
+    <div class="card-title">🏆 Nassau</div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(245,240,232,0.35);margin-bottom:8px;padding:0 2px;">
+      <span style="color:var(--team-a);">${teamAName}</span>
+      <span style="color:var(--team-b);">${teamBName}</span>
+    </div>
+    ${frontHTML}${backHTML}${fullHTML}
+    <div style="margin-top:8px;display:flex;gap:12px;">
+      <span style="font-size:11px;color:rgba(245,240,232,0.4);">Legs won:</span>
+      <span style="font-size:11px;color:var(--team-a);font-weight:600;">${teamAName} ${legsA}</span>
+      <span style="font-size:11px;color:var(--team-b);font-weight:600;">${teamBName} ${legsB}</span>
+    </div>
+  </div>`;
 }
 
 function renderDailyHcps() {
@@ -1023,13 +1124,13 @@ function renderHole() {
 
   // Comp banner
   const bannerArea = document.getElementById('comp-banner-area');
-  if (par===3) {
+  if (activeGames.ctpLd && par===3) {
     bannerArea.innerHTML = `<div class="comp-banner ctp-banner">📍 Closest to the Pin
       <select class="comp-winner-select" onchange="compWinners[${h}].ctp=this.value;saveState()">
         <option value="">-- Winner --</option>
         ${PLAYERS.map(p=>`<option value="${p.id}" ${compWinners[h].ctp===p.id?'selected':''}>${p.name}</option>`).join('')}
       </select></div>`;
-  } else if (par===5) {
+  } else if (activeGames.ctpLd && par===5) {
     bannerArea.innerHTML = `<div class="comp-banner ld-banner">💨 Long Drive
       <select class="comp-winner-select" onchange="compWinners[${h}].ld=this.value;saveState()">
         <option value="">-- Winner --</option>
@@ -1161,17 +1262,26 @@ function renderTeams() {
   else if (diff<0) resultHTML=`<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-b);">${teamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`;
   else resultHTML=`<div class="result-banner" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);"><div class="result-label">Status</div><div class="result-text" style="color:var(--gold);">All Square</div></div>`;
 
-  let holeRows='';
-  for (let h=0;h<18;h++) {
-    if (!PLAYERS.some(p=>scores[p.id][h]>0)) continue;
-    const {sumA,sumB,product}=teamMultiplierHole(h);
-    holeRows+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
-      <span style="font-family:'DM Mono',monospace;color:var(--gold);min-width:28px;">H${h+1}</span>
-      <span style="color:var(--team-a);min-width:26px;font-family:'DM Mono',monospace;">${sumA}pt</span>
-      <span style="color:rgba(245,240,232,0.3)">×</span>
-      <span style="color:var(--team-b);min-width:26px;font-family:'DM Mono',monospace;">${sumB}pt</span>
-      <span style="color:rgba(245,240,232,0.3)">=</span>
-      <span style="font-family:'DM Mono',monospace;font-weight:700;color:${product>0?'var(--cream)':'rgba(245,240,232,0.25)'};">${product}</span>
+  let multiplierHTML = '';
+  if (activeGames.teamMultiplier) {
+    let holeRows='';
+    for (let h=0;h<18;h++) {
+      if (!PLAYERS.some(p=>scores[p.id][h]>0)) continue;
+      const {sumA,sumB,product}=teamMultiplierHole(h);
+      holeRows+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
+        <span style="font-family:'DM Mono',monospace;color:var(--gold);min-width:28px;">H${h+1}</span>
+        <span style="color:var(--team-a);min-width:26px;font-family:'DM Mono',monospace;">${sumA}pt</span>
+        <span style="color:rgba(245,240,232,0.3)">×</span>
+        <span style="color:var(--team-b);min-width:26px;font-family:'DM Mono',monospace;">${sumB}pt</span>
+        <span style="color:rgba(245,240,232,0.3)">=</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;color:${product>0?'var(--cream)':'rgba(245,240,232,0.25)'};">${product}</span>
+      </div>`;
+    }
+    multiplierHTML = `<div class="card">
+      <div class="card-title">✖️ Multiplier Breakdown</div>
+      <div class="team-score-row" style="margin-bottom:7px;"><span class="team-score-label">Running Total</span><span class="team-score-val" style="color:var(--gold);">${mult}</span></div>
+      <div style="font-size:10px;color:rgba(245,240,232,0.35);margin-bottom:7px;">Combined team Stableford per hole × each other</div>
+      ${holeRows||'<div class="empty-state">No holes scored yet</div>'}
     </div>`;
   }
 
@@ -1185,32 +1295,32 @@ function renderTeams() {
       <div class="team-name">${teamBName}</div>
       <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-b);">${totB} pts</span></div>
       ${teamBPlayers.map(p=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${p.name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(p.id)} pts</span></div>`).join('')}
-    </div>
-    <div class="card">
-      <div class="card-title">✖️ Multiplier Breakdown</div>
-      <div class="team-score-row" style="margin-bottom:7px;"><span class="team-score-label">Running Total</span><span class="team-score-val" style="color:var(--gold);">${mult}</span></div>
-      <div style="font-size:10px;color:rgba(245,240,232,0.35);margin-bottom:7px;">Combined team Stableford per hole × each other</div>
-      ${holeRows||'<div class="empty-state">No holes scored yet</div>'}
-    </div>`;
+    </div>` +
+    multiplierHTML +
+    (activeGames.skins  ? renderSkinsSection()  : '') +
+    (activeGames.nassau ? renderNassauSection() : '');
 }
 
 // ══════════════════════════════════════════════
 // COMPS PAGE
 // ══════════════════════════════════════════════
 function renderComps() {
+  const off = `<div class="empty-state">Disabled — turn on CTP & Long Drive in Setup → Game Format</div>`;
+  if (!activeGames.ctpLd) {
+    document.getElementById('ctp-list').innerHTML = off;
+    document.getElementById('ld-list').innerHTML  = off;
+    return;
+  }
   const par3 = pars.map((p,i)=>p===3?i:-1).filter(h=>h>=0);
   const par5 = pars.map((p,i)=>p===5?i:-1).filter(h=>h>=0);
-
   function winnerName(pid) {
     if (!pid) return '<span style="color:rgba(245,240,232,0.2)">— TBD —</span>';
     const pl = PLAYERS.find(x=>x.id===pid);
     return `<span style="color:${pl.color};font-weight:600;">${pl.name}</span>`;
   }
-
   document.getElementById('ctp-list').innerHTML = par3.length ?
     par3.map(h=>`<div class="comp-row"><span class="comp-hole">H${h+1}</span><span class="comp-type">📍 CTP</span><span class="comp-winner">${winnerName(compWinners[h].ctp)}</span></div>`).join('') :
     '<div class="empty-state">No par 3s</div>';
-
   document.getElementById('ld-list').innerHTML = par5.length ?
     par5.map(h=>`<div class="comp-row"><span class="comp-hole">H${h+1}</span><span class="comp-type">💨 Long Drive</span><span class="comp-winner">${winnerName(compWinners[h].ld)}</span></div>`).join('') :
     '<div class="empty-state">No par 5s</div>';
