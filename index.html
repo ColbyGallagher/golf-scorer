@@ -293,6 +293,7 @@
     <div class="card">
       <div class="card-title">🎮 Game Format</div>
       <div id="game-format-list"></div>
+      <div id="wolf-order-section"></div>
     </div>
     <div style="display:flex;gap:8px;">
       <button class="btn-secondary" style="flex:1;" onclick="showSetupStep(1)">← Back</button>
@@ -377,6 +378,7 @@
     <span class="hole-type-badge par4-badge" id="hole-type-badge">Par 4</span>
   </div>
   <div id="comp-banner-area"></div>
+  <div id="wolf-hole-area"></div>
   <div class="card-title" style="margin-bottom:9px;">🏌️ Scores</div>
   <div class="score-grid" id="score-grid"></div>
   <div style="margin-top:12px;display:flex;gap:8px;">
@@ -776,7 +778,7 @@ function saveState() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
       handicaps, pars, indices, scores, compWinners, currentHole, courseName, selectedTee,
-      courseRating, slopeRating, teamAssignments, activeGames
+      courseRating, slopeRating, teamAssignments, activeGames, wolfOrder, wolfHoles
     }));
     const el = document.getElementById('save-indicator');
     if (el) { el.style.color='rgba(78,186,122,1)'; setTimeout(()=>{ el.style.color='rgba(78,186,122,0.5)'; }, 600); }
@@ -799,7 +801,9 @@ function loadState() {
     if (typeof s.courseRating === 'number') courseRating    = s.courseRating;
     if (typeof s.slopeRating  === 'number') slopeRating     = s.slopeRating;
     if (s.teamAssignments)                  teamAssignments = s.teamAssignments;
-    if (s.activeGames)                      activeGames     = { ...activeGames, ...s.activeGames };
+    if (s.activeGames)  activeGames = { ...activeGames, ...s.activeGames };
+    if (s.wolfOrder)    wolfOrder   = s.wolfOrder;
+    if (s.wolfHoles)    wolfHoles   = s.wolfHoles;
     return true;
   } catch(e) { return false; }
 }
@@ -818,7 +822,9 @@ function resetState() {
   courseRating    = 71.0;
   slopeRating     = 113;
   teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
-  activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true };
+  activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true, wolf: false };
+  wolfOrder       = PLAYERS.map(p => p.id);
+  wolfHoles       = Array(18).fill(null).map(() => ({ mode: null, partnerId: null }));
   renderSetup();
   showPage('setup');
 }
@@ -834,7 +840,9 @@ let selectedTee  = 'yellow';
 let courseRating    = 71.0;
 let slopeRating     = 113;
 let teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
-let activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true };
+let activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true, wolf: false };
+let wolfOrder       = PLAYERS.map(p => p.id);
+let wolfHoles       = Array(18).fill(null).map(() => ({ mode: null, partnerId: null }));
 let setupStep       = 1;
 
 PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
@@ -1038,14 +1046,216 @@ function renderGameFormat() {
     ${row('✖️','Team Multiplier','Team totals × each other per hole','teamMultiplier')}
     ${row('🃏','Skins','Hole-by-hole winner takes the skin; ties carry over','skins')}
     ${row('🏆','Nassau','Team A vs B — front 9, back 9 and overall','nassau')}
+    ${row('🐺','Wolf','Rotating wolf — blind, alone, or pick a partner each hole','wolf')}
     ${row('🎯','CTP & Long Drive','Closest to pin (par 3) · Long drive (par 5)','ctpLd')}
   </div>`;
+  renderWolfOrder();
 }
 
 function toggleGame(key) {
   activeGames[key] = !activeGames[key];
   saveState();
   renderGameFormat();
+}
+
+// ══════════════════════════════════════════════
+// WOLF
+// ══════════════════════════════════════════════
+function renderWolfOrder() {
+  const el = document.getElementById('wolf-order-section');
+  if (!el) return;
+  if (!activeGames.wolf) { el.innerHTML = ''; return; }
+  const btnBase = 'width:26px;height:26px;border-radius:6px;background:rgba(245,240,232,0.06);border:1px solid rgba(245,240,232,0.1);color:var(--cream);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;font-family:\'DM Sans\',sans-serif;';
+  el.innerHTML = `
+    <div style="margin-top:14px;padding-top:13px;border-top:1px solid rgba(245,240,232,0.08);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);">Wolf Rotation</div>
+        <button onclick="shuffleWolfOrder()"
+          style="padding:4px 11px;font-size:10px;font-weight:600;border-radius:12px;background:rgba(245,240,232,0.06);border:1px solid rgba(245,240,232,0.15);color:rgba(245,240,232,0.55);cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:0.5px;">
+          Shuffle
+        </button>
+      </div>
+      ${wolfOrder.map((pid, i) => {
+        const p = PLAYERS.find(pl => pl.id === pid);
+        if (!p) return '';
+        const disUp = i === 0 ? 'opacity:0.2;pointer-events:none;' : '';
+        const disDown = i === wolfOrder.length - 1 ? 'opacity:0.2;pointer-events:none;' : '';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(245,240,232,0.04);">
+          <span style="font-size:10px;color:rgba(245,240,232,0.25);width:14px;text-align:center;">${i+1}</span>
+          <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
+          <span style="flex:1;font-size:13px;font-weight:500;">${p.name}</span>
+          <div style="display:flex;gap:4px;">
+            <button onclick="moveWolfOrder(${i},-1)" style="${btnBase}${disUp}">↑</button>
+            <button onclick="moveWolfOrder(${i},1)"  style="${btnBase}${disDown}">↓</button>
+          </div>
+        </div>`;
+      }).join('')}
+      <div style="font-size:10px;color:rgba(245,240,232,0.25);margin-top:8px;">Holes 17 & 18: flip a tee to decide wolf</div>
+    </div>`;
+}
+
+function shuffleWolfOrder() {
+  for (let i = wolfOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [wolfOrder[i], wolfOrder[j]] = [wolfOrder[j], wolfOrder[i]];
+  }
+  saveState();
+  renderWolfOrder();
+}
+
+function moveWolfOrder(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= wolfOrder.length) return;
+  [wolfOrder[i], wolfOrder[j]] = [wolfOrder[j], wolfOrder[i]];
+  saveState();
+  renderWolfOrder();
+}
+
+function getWolfId(h) {
+  return wolfOrder.length ? wolfOrder[h % wolfOrder.length] : null;
+}
+
+function setWolfMode(h, mode) {
+  wolfHoles[h].mode = wolfHoles[h].mode === mode ? null : mode;
+  if (wolfHoles[h].mode !== 'partner') wolfHoles[h].partnerId = null;
+  saveState();
+  renderWolfHoleSection(h);
+}
+
+function setWolfPartner(h, pid) {
+  wolfHoles[h].partnerId = wolfHoles[h].partnerId === pid ? null : pid;
+  saveState();
+  renderWolfHoleSection(h);
+}
+
+function renderWolfHoleSection(h) {
+  const el = document.getElementById('wolf-hole-area');
+  if (!el || !activeGames.wolf) { if (el) el.innerHTML = ''; return; }
+  const wolfId = getWolfId(h);
+  const wolf = PLAYERS.find(p => p.id === wolfId);
+  if (!wolf) return;
+  const wh = wolfHoles[h];
+  const mode = wh.mode;
+
+  // Auto-calculate result from current Stableford scores
+  let resultHtml = '';
+  if (mode && PLAYERS.some(p => scores[p.id][h] > 0)) {
+    const wolfPts   = stablefordPoints(scores[wolfId][h], pars[h], wolfId, h) ?? 0;
+    const others    = PLAYERS.filter(p => p.id !== wolfId);
+    if (mode === 'blind' || mode === 'alone') {
+      const maxOther = Math.max(...others.map(p => stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0));
+      const winPts   = mode === 'blind' ? 8 : 4;
+      if (wolfPts > maxOther)
+        resultHtml = `<div style="margin-top:9px;font-size:11px;font-weight:600;color:var(--green-bright);">✅ ${wolf.name} wins · +${winPts} pts</div>`;
+      else if (wolfPts < maxOther)
+        resultHtml = `<div style="margin-top:9px;font-size:11px;color:rgba(245,240,232,0.5);">Others win · +2 pts each</div>`;
+      else
+        resultHtml = `<div style="margin-top:9px;font-size:11px;color:var(--gold);">Draw · 0 pts</div>`;
+    } else if (mode === 'partner' && wh.partnerId) {
+      const partnerPts = stablefordPoints(scores[wh.partnerId][h], pars[h], wh.partnerId, h) ?? 0;
+      const otherTwo   = others.filter(p => p.id !== wh.partnerId);
+      const wolfTeam   = wolfPts + partnerPts;
+      const otherTeam  = otherTwo.reduce((s, p) => s + (stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0), 0);
+      const partner    = PLAYERS.find(p => p.id === wh.partnerId);
+      if (wolfTeam > otherTeam)
+        resultHtml = `<div style="margin-top:9px;font-size:11px;font-weight:600;color:var(--green-bright);">✅ ${wolf.name} & ${partner.name} win · +2 each</div>`;
+      else if (wolfTeam < otherTeam)
+        resultHtml = `<div style="margin-top:9px;font-size:11px;color:rgba(245,240,232,0.5);">Others win · +3 pts each</div>`;
+      else
+        resultHtml = `<div style="margin-top:9px;font-size:11px;color:var(--gold);">Draw · 0 pts</div>`;
+    }
+  }
+
+  const on  = (active) => active
+    ? 'background:rgba(78,186,122,0.18);border-color:var(--green-bright);color:var(--green-bright);'
+    : 'background:rgba(245,240,232,0.04);border-color:rgba(245,240,232,0.12);color:rgba(245,240,232,0.45);';
+  const btn = `padding:6px 12px;border-radius:20px;border:1px solid;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;`;
+
+  el.innerHTML = `<div style="background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:11px;padding:11px 13px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;">
+      <span style="font-size:14px;">🐺</span>
+      <div style="width:8px;height:8px;border-radius:50%;background:${wolf.color};"></div>
+      <span style="font-size:13px;font-weight:700;">${wolf.name}</span>
+      <span style="font-size:11px;color:rgba(245,240,232,0.35);">is Wolf</span>
+      ${h >= 16 ? '<span style="font-size:9px;background:rgba(201,168,76,0.15);color:var(--gold);padding:2px 7px;border-radius:8px;margin-left:auto;">Flip!</span>' : ''}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button onclick="setWolfMode(${h},'blind')"   style="${btn}${on(mode==='blind')}">🎯 Blind (8)</button>
+      <button onclick="setWolfMode(${h},'alone')"   style="${btn}${on(mode==='alone')}">🚶 Alone (4)</button>
+      <button onclick="setWolfMode(${h},'partner')" style="${btn}${on(mode==='partner')}">🤝 Partner (2)</button>
+    </div>
+    ${mode === 'partner' ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+      ${PLAYERS.filter(p => p.id !== wolfId).map(p =>
+        `<button onclick="setWolfPartner(${h},'${p.id}')" style="${btn}${on(wh.partnerId===p.id)}">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${p.color};margin-right:4px;vertical-align:middle;"></span>${p.name}
+        </button>`).join('')}
+    </div>` : ''}
+    ${resultHtml}
+  </div>`;
+}
+
+function calcWolf() {
+  return Array.from({length: 18}, (_, h) => {
+    const wolfId = getWolfId(h);
+    const wh     = wolfHoles[h];
+    const pm     = {};
+    PLAYERS.forEach(p => pm[p.id] = 0);
+    if (!wh || !wh.mode || !PLAYERS.some(p => scores[p.id][h] > 0))
+      return { hole: h, wolfId, mode: wh?.mode || null, pm };
+    const wolfPts = stablefordPoints(scores[wolfId][h], pars[h], wolfId, h) ?? 0;
+    const others  = PLAYERS.filter(p => p.id !== wolfId);
+    if (wh.mode === 'blind' || wh.mode === 'alone') {
+      const maxOther = Math.max(...others.map(p => stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0));
+      const winPts   = wh.mode === 'blind' ? 8 : 4;
+      if (wolfPts > maxOther)      pm[wolfId] = winPts;
+      else if (wolfPts < maxOther) others.forEach(p => pm[p.id] = 2);
+    } else if (wh.mode === 'partner' && wh.partnerId) {
+      const pPts      = stablefordPoints(scores[wh.partnerId][h], pars[h], wh.partnerId, h) ?? 0;
+      const otherTwo  = others.filter(p => p.id !== wh.partnerId);
+      const wolfTeam  = wolfPts + pPts;
+      const otherTeam = otherTwo.reduce((s, p) => s + (stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0), 0);
+      if (wolfTeam > otherTeam)      { pm[wolfId] = 2; pm[wh.partnerId] = 2; }
+      else if (wolfTeam < otherTeam) otherTwo.forEach(p => pm[p.id] = 3);
+    }
+    return { hole: h, wolfId, mode: wh.mode, partnerId: wh.partnerId, pm };
+  });
+}
+
+function renderWolfSection() {
+  const results = calcWolf();
+  const totals  = {};
+  PLAYERS.forEach(p => totals[p.id] = 0);
+  results.forEach(r => PLAYERS.forEach(p => totals[p.id] += r.pm[p.id] || 0));
+  const sorted = [...PLAYERS].sort((a, b) => totals[b.id] - totals[a.id]);
+
+  const holeRows = results.filter(r => r.mode).map(r => {
+    const wolf    = PLAYERS.find(p => p.id === r.wolfId);
+    const partner = r.partnerId ? PLAYERS.find(p => p.id === r.partnerId) : null;
+    const modeTag = r.mode === 'blind' ? '🎯 Blind' : r.mode === 'alone' ? '🚶 Alone' : `🤝 ${partner?.name||'?'}`;
+    const pts     = PLAYERS.map(p => r.pm[p.id] > 0 ? `${p.name} +${r.pm[p.id]}` : '').filter(Boolean);
+    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
+      <span style="font-family:'DM Mono',monospace;color:var(--gold);min-width:28px;">H${r.hole+1}</span>
+      <div style="width:7px;height:7px;border-radius:50%;background:${wolf?.color};flex-shrink:0;"></div>
+      <span style="min-width:42px;color:rgba(245,240,232,0.6);">${wolf?.name}</span>
+      <span style="color:rgba(245,240,232,0.3);min-width:60px;">${modeTag}</span>
+      <span style="flex:1;color:${pts.length ? 'var(--green-bright)' : 'var(--gold)'};">${pts.join(', ') || 'Draw'}</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="card">
+    <div class="card-title">🐺 Wolf</div>
+    <div style="display:flex;flex-direction:column;margin-bottom:14px;">
+      ${sorted.map((p, i) => `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;${i < sorted.length-1 ? 'border-bottom:1px solid rgba(245,240,232,0.06);' : ''}">
+        <span style="font-size:10px;color:rgba(245,240,232,0.25);width:14px;">${i+1}</span>
+        <div style="width:8px;height:8px;border-radius:50%;background:${p.color};"></div>
+        <span style="flex:1;font-size:13px;font-weight:500;">${p.name}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${totals[p.id] > 0 ? 'var(--green-bright)' : 'rgba(245,240,232,0.25)'};">${totals[p.id]} pts</span>
+      </div>`).join('')}
+    </div>
+    ${holeRows
+      ? `<div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.3);margin-bottom:7px;">Hole by Hole</div>${holeRows}`
+      : '<div class="empty-state">No wolf decisions recorded yet</div>'}
+  </div>`;
 }
 
 function renderTeamSetup() {
@@ -1282,6 +1492,9 @@ function renderHole() {
       </select></div>`;
   } else { bannerArea.innerHTML = ''; }
 
+  // Wolf hole section
+  renderWolfHoleSection(h);
+
   // Score rows
   document.getElementById('score-grid').innerHTML = PLAYERS.map(p => {
     const strokes = scores[p.id][h];
@@ -1316,6 +1529,7 @@ function adjustScore(pid, hole, delta) {
   el.textContent = ptsLabel(pts);
   saveState();
   renderHoleDots();
+  if (activeGames.wolf) renderWolfHoleSection(hole);
   triggerAutoSaveIfHoleComplete(hole);
 }
 
@@ -1442,7 +1656,8 @@ function renderTeams() {
     </div>` +
     multiplierHTML +
     (activeGames.skins  ? renderSkinsSection()  : '') +
-    (activeGames.nassau ? renderNassauSection() : '');
+    (activeGames.nassau ? renderNassauSection() : '') +
+    (activeGames.wolf   ? renderWolfSection()   : '');
 }
 
 // ══════════════════════════════════════════════
