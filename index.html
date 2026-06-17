@@ -1155,7 +1155,7 @@ function handleScorecardImage(event) {
       msgEl.style.background = 'rgba(78,186,122,0.12)';
       msgEl.style.color = 'var(--green-bright)';
       msgEl.textContent = `✅ Loaded! ${result.courseName || 'Course'} · ${selectedTee} tees · Par ${par} · ${teeCount} tee set${teeCount !== 1 ? 's' : ''} saved`;
-      saveScorecardToCloud(result.courseName || courseName, selectedTee, result.tees || {});
+      saveScorecardToCloud(result.courseName || courseName, selectedTee, result.tees || {}, base64ToBlob(base64, mimeType), mimeType);
     } catch(err) {
       msgEl.style.background = 'rgba(224,85,85,0.1)';
       msgEl.style.color = 'var(--red)';
@@ -1200,12 +1200,33 @@ Rules:
   return JSON.parse(jsonMatch[0]);
 }
 
-async function saveScorecardToCloud(course, tee, tees) {
+function base64ToBlob(base64, mimeType) {
+  const bytes = atob(base64);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mimeType });
+}
+
+async function saveScorecardToCloud(course, tee, tees, imageBlob, imageMime) {
   try {
+    let imagePath = null;
+    if (imageBlob) {
+      const ext = imageMime === 'image/png' ? 'png' : 'jpg';
+      const filename = `scorecards/${Date.now()}.${ext}`;
+      const { data: uploadData, error: uploadError } = await db.storage
+        .from('scorecard-images')
+        .upload(filename, imageBlob, { contentType: imageMime, upsert: false });
+      if (uploadError) {
+        console.error('Image upload failed:', uploadError);
+      } else {
+        imagePath = uploadData.path;
+      }
+    }
     const { error } = await db.from('scorecards').insert({
       course_name: course,
       selected_tee: tee,
       tees: tees,
+      image_path: imagePath,
     });
     if (error) console.error('Scorecard save failed:', error);
   } catch(e) {
