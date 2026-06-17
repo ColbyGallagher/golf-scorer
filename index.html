@@ -207,7 +207,6 @@
 
 <div class="nav-tabs">
   <div class="nav-tab active" onclick="showPage('setup')">⚙️ Setup</div>
-  <div class="nav-tab" onclick="showPage('course')">⛳ Course</div>
   <div class="nav-tab" onclick="showPage('score')">🏌️ Score</div>
   <div class="nav-tab" onclick="showPage('card')">📋 Card</div>
   <div class="nav-tab" onclick="showPage('teams')">🏆 Teams</div>
@@ -217,6 +216,7 @@
 
 <!-- ══ SETUP PAGE ══ -->
 <div id="page-setup" class="page active">
+  <div id="setup-wizard">
 
   <!-- Stepper indicator -->
   <div style="display:flex;align-items:flex-start;justify-content:center;gap:0;margin-bottom:18px;">
@@ -325,35 +325,25 @@
         <div id="daily-hcp-list"></div>
       </div>
     </div>
-    <div class="card">
+    <div id="teams-setup-card" class="card">
       <div class="card-title">🤝 Teams</div>
       <div id="team-setup-list"></div>
     </div>
     <div style="display:flex;gap:8px;">
       <button class="btn-secondary" style="flex:1;" onclick="showSetupStep(2)">← Back</button>
-      <button class="btn-primary" style="flex:2;" onclick="showPage('score')">Start Scoring →</button>
-    </div>
-    <div style="margin-top:8px;">
-      <button class="btn-secondary" style="width:100%;" onclick="showPage('course')">Edit Holes</button>
-    </div>
-    <div style="margin-top:10px;text-align:center;">
-      <button onclick="resetState()" style="background:none;border:none;color:rgba(245,240,232,0.25);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;padding:6px;">
-        🔄 Reset & start new round
-      </button>
+      <button class="btn-primary" style="flex:2;" onclick="startGame()">Start Scoring →</button>
     </div>
   </div>
 
-</div>
+  </div><!-- /setup-wizard -->
 
-<!-- ══ COURSE PAGE ══ -->
-<div id="page-course" class="page">
-  <div class="card">
-    <div class="card-title">⛳ Hole Setup — Par & Index</div>
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-      <table class="course-table" id="course-table"></table>
-    </div>
+  <div id="setup-active" style="display:none;padding-top:4px;">
+    <div id="active-game-summary"></div>
+    <button onclick="endGame()"
+      style="width:100%;padding:14px;margin-top:8px;background:rgba(200,60,60,0.1);border:1px solid rgba(200,60,60,0.28);border-radius:12px;color:#ff7070;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;">
+      End Game
+    </button>
   </div>
-  <button class="btn-primary" onclick="showPage('score')">Start Scoring →</button>
 </div>
 
 <!-- ══ SCORE PAGE ══ -->
@@ -778,7 +768,7 @@ function saveState() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
       handicaps, pars, indices, scores, compWinners, currentHole, courseName, selectedTee,
-      courseRating, slopeRating, teamAssignments, activeGames, wolfOrder, wolfHoles
+      courseRating, slopeRating, teamAssignments, activeGames, wolfOrder, wolfHoles, gameActive
     }));
     const el = document.getElementById('save-indicator');
     if (el) { el.style.color='rgba(78,186,122,1)'; setTimeout(()=>{ el.style.color='rgba(78,186,122,0.5)'; }, 600); }
@@ -804,29 +794,95 @@ function loadState() {
     if (s.activeGames)  activeGames = { ...activeGames, ...s.activeGames };
     if (s.wolfOrder)    wolfOrder   = s.wolfOrder;
     if (s.wolfHoles)    wolfHoles   = s.wolfHoles;
+    if (typeof s.gameActive === 'boolean') gameActive = s.gameActive;
     return true;
   } catch(e) { return false; }
 }
 
-function resetState() {
-  if (!confirm('Reset all scores and start a new round?')) return;
+function doReset() {
   localStorage.removeItem(LS_KEY);
   handicaps    = { colby: 0, mitch: 0, dave: 0, scott: 0 };
   pars         = HOLE_DATA.map(h => h.par);
   indices      = HOLE_DATA.map(h => h.idx);
   PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
   for (let i = 0; i < 18; i++) compWinners[i] = { ctp: '', ld: '' };
-  currentHole  = 0;
-  courseName   = 'Shortland Waters';
-  selectedTee  = 'yellow';
+  currentHole     = 0;
+  courseName      = 'Shortland Waters';
+  selectedTee     = 'yellow';
   courseRating    = 71.0;
   slopeRating     = 113;
   teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
-  activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true, wolf: false };
+  activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true, wolf: false, gross: false, net: false };
   wolfOrder       = PLAYERS.map(p => p.id);
   wolfHoles       = Array(18).fill(null).map(() => ({ mode: null, partnerId: null }));
-  renderSetup();
+  gameActive      = false;
+  savedCourses    = null;
   showPage('setup');
+}
+
+function resetState() {
+  if (!confirm('Reset all scores and start a new round?')) return;
+  doReset();
+}
+
+function startGame() {
+  gameActive = true;
+  saveState();
+  showPage('score');
+}
+
+function endGame() {
+  if (!confirm('End this game? All scores will be lost.')) return;
+  doReset();
+}
+
+function renderActiveGame() {
+  const el = document.getElementById('active-game-summary');
+  if (!el) return;
+  const coursePar = pars.reduce((a, b) => a + b, 0);
+  const holesPlayed = Array.from({length:18}, (_, h) => PLAYERS.some(p => scores[p.id][h] > 0)).filter(Boolean).length;
+  const activeList = [
+    activeGames.teamMultiplier ? '✖️ Multiplier' : null,
+    activeGames.skins   ? '🃏 Skins'      : null,
+    activeGames.nassau  ? '🏆 Nassau'     : null,
+    activeGames.wolf    ? '🐺 Wolf'       : null,
+    activeGames.gross   ? '📊 Gross'      : null,
+    activeGames.net     ? '🏅 Net'        : null,
+    activeGames.ctpLd   ? '🎯 CTP & LD'  : null,
+  ].filter(Boolean);
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-title">🏌️ Round in Progress</div>
+      <div style="display:flex;flex-direction:column;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(245,240,232,0.06);">
+          <span style="font-size:11px;color:rgba(245,240,232,0.4);">Course</span>
+          <span style="font-size:13px;font-weight:600;">${courseName || '—'}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(245,240,232,0.06);">
+          <span style="font-size:11px;color:rgba(245,240,232,0.4);">Par</span>
+          <span style="font-size:13px;font-weight:600;">${coursePar}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(245,240,232,0.06);">
+          <span style="font-size:11px;color:rgba(245,240,232,0.4);">Holes Played</span>
+          <span style="font-size:13px;font-weight:600;color:var(--green-bright);">${holesPlayed} / 18</span>
+        </div>
+        ${activeList.length ? `<div style="padding:9px 0;border-bottom:1px solid rgba(245,240,232,0.06);">
+          <div style="font-size:11px;color:rgba(245,240,232,0.4);margin-bottom:8px;">Games</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${activeList.map(g => `<span style="font-size:11px;padding:3px 9px;background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.2);border-radius:20px;color:var(--green-bright);">${g}</span>`).join('')}
+          </div>
+        </div>` : ''}
+        <div style="padding:9px 0;">
+          <div style="font-size:11px;color:rgba(245,240,232,0.4);margin-bottom:8px;">Players</div>
+          ${PLAYERS.map(p => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">
+            <div style="width:8px;height:8px;border-radius:50%;background:${p.color};"></div>
+            <span style="font-size:13px;flex:1;">${p.name}</span>
+            <span style="font-size:11px;color:rgba(245,240,232,0.4);">HI ${handicaps[p.id]}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <button class="btn-primary" style="width:100%;margin-top:4px;" onclick="showPage('score')">Resume Scoring →</button>`;
 }
 
 let handicaps    = { colby: 18, mitch: 14, dave: 16, scott: 0 };
@@ -840,9 +896,10 @@ let selectedTee  = 'yellow';
 let courseRating    = 71.0;
 let slopeRating     = 113;
 let teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
-let activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true, wolf: false };
+let activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true, wolf: false, gross: false, net: false };
 let wolfOrder       = PLAYERS.map(p => p.id);
 let wolfHoles       = Array(18).fill(null).map(() => ({ mode: null, partnerId: null }));
+let gameActive      = false;
 let setupStep       = 1;
 
 PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
@@ -937,6 +994,8 @@ function showSetupStep(n) {
     if (srEl) srEl.value = slopeRating;
     renderDailyHcps();
     renderTeamSetup();
+    const teamsCard = document.getElementById('teams-setup-card');
+    if (teamsCard) teamsCard.style.display = (activeGames.teamMultiplier || activeGames.nassau) ? '' : 'none';
   }
 }
 
@@ -1047,6 +1106,8 @@ function renderGameFormat() {
     ${row('🃏','Skins','Hole-by-hole winner takes the skin; ties carry over','skins')}
     ${row('🏆','Nassau','Team A vs B — front 9, back 9 and overall','nassau')}
     ${row('🐺','Wolf','Rotating wolf — blind, alone, or pick a partner each hole','wolf')}
+    ${row('📊','Gross','Total shots — traditional stroke play ranking','gross')}
+    ${row('🏅','Net','Gross minus playing handicap','net')}
     ${row('🎯','CTP & Long Drive','Closest to pin (par 3) · Long drive (par 5)','ctpLd')}
   </div>`;
   renderWolfOrder();
@@ -1412,43 +1473,55 @@ function renderDailyHcps() {
   }).join('');
 }
 
+function getPlayingHandicap(pid) {
+  const hi  = parseFloat(handicaps[pid]) || 0;
+  const par = pars.reduce((a, b) => a + b, 0);
+  return Math.round((hi * (slopeRating / 113) + (courseRating - par)) * 0.95);
+}
+
+function renderGrossNetSection() {
+  if (!activeGames.gross && !activeGames.net) return '';
+  const showG = activeGames.gross;
+  const showN = activeGames.net;
+  const rows  = [...PLAYERS].map(p => ({
+    p,
+    gross: scores[p.id].reduce((s, v) => s + v, 0),
+    ph:    getPlayingHandicap(p.id),
+  })).map(r => ({ ...r, net: r.gross > 0 ? r.gross - r.ph : 0 }))
+    .sort((a, b) => showN ? (a.net || 999) - (b.net || 999) : (a.gross || 999) - (b.gross || 999));
+  const title = showG && showN ? '📊 Gross & Net' : showG ? '📊 Gross' : '🏅 Net';
+  return `<div class="card">
+    <div class="card-title">${title}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);">
+          <th style="padding:4px 0;text-align:left;font-weight:500;"></th>
+          ${showG ? '<th style="padding:4px 8px;text-align:center;font-weight:500;">Gross</th>' : ''}
+          ${showN ? '<th style="padding:4px 8px;text-align:center;font-weight:500;">Net</th>' : ''}
+          ${showN ? '<th style="padding:4px 8px;text-align:center;font-weight:500;">HCP</th>' : ''}
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((r, i) => `<tr style="${i < rows.length-1 ? 'border-bottom:1px solid rgba(245,240,232,0.05);' : ''}">
+          <td style="padding:7px 0;">
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span style="font-size:10px;color:rgba(245,240,232,0.25);width:12px;">${i+1}</span>
+              <div style="width:7px;height:7px;border-radius:50%;background:${r.p.color};"></div>
+              <span style="font-size:13px;font-weight:500;">${r.p.name}</span>
+            </div>
+          </td>
+          ${showG ? `<td style="padding:7px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:${r.gross>0?'var(--cream)':'rgba(245,240,232,0.2)'};">${r.gross||'—'}</td>` : ''}
+          ${showN ? `<td style="padding:7px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:${r.gross>0?'var(--green-bright)':'rgba(245,240,232,0.2)'};">${r.gross>0?r.net:'—'}</td>` : ''}
+          ${showN ? `<td style="padding:7px 8px;text-align:center;font-size:11px;color:rgba(245,240,232,0.3);">${r.ph}</td>` : ''}
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
 // ══════════════════════════════════════════════
 // COURSE PAGE
 // ══════════════════════════════════════════════
-function renderCourseTable() {
-  const rows = HOLE_DATA.map((_, i) => {
-    const par = pars[i];
-    const idx = indices[i];
-    const typeLabel = par===3 ? '<span class="ct-type ct-type-3">Par 3 · CTP</span>' :
-                      par===5 ? '<span class="ct-type ct-type-5">Par 5 · LD</span>' :
-                                '<span class="ct-type ct-type-4">Par 4</span>';
-    const rowClass = par===3 ? 'par3-row' : par===5 ? 'par5-row' : '';
-    return `<tr class="${rowClass}">
-      <td class="ct-hole">${i+1}</td>
-      <td>
-        <button class="ct-par-btn" onclick="adjustCoursePar(${i},-1)">−</button>
-        <span class="ct-par-val" id="ctp-${i}">${par}</span>
-        <button class="ct-par-btn" onclick="adjustCoursePar(${i},1)">+</button>
-      </td>
-      <td>
-        <input class="ct-idx-input" type="number" min="1" max="18" value="${idx}"
-          id="cti-${i}" oninput="indices[${i}]=parseInt(this.value)||${idx};saveState()" inputmode="numeric">
-      </td>
-      <td>${typeLabel}</td>
-    </tr>`;
-  }).join('');
-  document.getElementById('course-table').innerHTML = `
-    <thead><tr>
-      <th>Hole</th><th>Par</th><th>SI</th><th>Type</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>`;
-}
-
-function adjustCoursePar(hole, delta) {
-  pars[hole] = Math.max(3, Math.min(5, pars[hole] + delta));
-  saveState();
-  renderCourseTable();
-}
 
 // ══════════════════════════════════════════════
 // SCORE PAGE
@@ -1657,7 +1730,8 @@ function renderTeams() {
     multiplierHTML +
     (activeGames.skins  ? renderSkinsSection()  : '') +
     (activeGames.nassau ? renderNassauSection() : '') +
-    (activeGames.wolf   ? renderWolfSection()   : '');
+    (activeGames.wolf   ? renderWolfSection()   : '') +
+    (activeGames.gross || activeGames.net ? renderGrossNetSection() : '');
 }
 
 // ══════════════════════════════════════════════
@@ -1688,14 +1762,26 @@ function renderComps() {
 // ══════════════════════════════════════════════
 // PAGE ROUTING
 // ══════════════════════════════════════════════
-const PAGES = ['setup','course','score','card','teams','comps','history'];
+const PAGES = ['setup','score','card','teams','comps','history'];
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   document.querySelectorAll('.nav-tab')[PAGES.indexOf(name)].classList.add('active');
-  if (name==='setup')   { showSetupStep(1); renderSetup(); }
-  if (name==='course')  renderCourseTable();
+  if (name==='setup') {
+    const wizard = document.getElementById('setup-wizard');
+    const active = document.getElementById('setup-active');
+    if (gameActive) {
+      if (wizard) wizard.style.display = 'none';
+      if (active) active.style.display = '';
+      renderActiveGame();
+    } else {
+      if (wizard) wizard.style.display = '';
+      if (active) active.style.display = 'none';
+      showSetupStep(1);
+      renderSetup();
+    }
+  }
   if (name==='score')   renderHole();
   if (name==='card')    renderScorecard();
   if (name==='teams')   renderTeams();
@@ -1907,7 +1993,6 @@ function applyTee(tee, btn) {
   });
   selectedTee = tee;
   saveState();
-  renderCourseTable();
   document.querySelectorAll('#tee-options .tee-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   const par   = pars.reduce((a, b) => a + b, 0);
