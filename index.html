@@ -222,6 +222,25 @@
     <div id="player-setup-list"></div>
   </div>
   <div class="card">
+    <div class="card-title">📐 Daily Handicaps</div>
+    <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:12px;">WHS: Playing HCP = round(HI × (Slope ÷ 113) + (Course Rating − Par)) × 95%</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.4);margin-bottom:4px;">Course Rating</div>
+        <input id="course-rating-input" type="number" step="0.1" min="60" max="80"
+          class="hcp-input" style="width:100%;box-sizing:border-box;"
+          oninput="courseRating=parseFloat(this.value)||71;saveState();renderDailyHcps()" inputmode="decimal">
+      </div>
+      <div>
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.4);margin-bottom:4px;">Slope Rating</div>
+        <input id="slope-rating-input" type="number" step="1" min="55" max="155"
+          class="hcp-input" style="width:100%;box-sizing:border-box;"
+          oninput="slopeRating=parseInt(this.value)||113;saveState();renderDailyHcps()" inputmode="numeric">
+      </div>
+    </div>
+    <div id="daily-hcp-list"></div>
+  </div>
+  <div class="card">
     <div class="card-title">🤝 Teams</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
       <div style="background:rgba(78,186,122,0.08);border:1px solid rgba(78,186,122,0.2);border-radius:10px;padding:11px;">
@@ -703,7 +722,8 @@ const LS_KEY = 'swgc_round';
 function saveState() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
-      handicaps, pars, indices, scores, compWinners, currentHole, courseName, selectedTee
+      handicaps, pars, indices, scores, compWinners, currentHole, courseName, selectedTee,
+      courseRating, slopeRating
     }));
     const el = document.getElementById('save-indicator');
     if (el) { el.style.color='rgba(78,186,122,1)'; setTimeout(()=>{ el.style.color='rgba(78,186,122,0.5)'; }, 600); }
@@ -723,6 +743,8 @@ function loadState() {
     if (typeof s.currentHole === 'number') currentHole = s.currentHole;
     if (s.courseName)   courseName   = s.courseName;
     if (s.selectedTee)  selectedTee  = s.selectedTee;
+    if (typeof s.courseRating === 'number') courseRating = s.courseRating;
+    if (typeof s.slopeRating  === 'number') slopeRating  = s.slopeRating;
     return true;
   } catch(e) { return false; }
 }
@@ -738,6 +760,8 @@ function resetState() {
   currentHole  = 0;
   courseName   = 'Shortland Waters';
   selectedTee  = 'yellow';
+  courseRating = 71.0;
+  slopeRating  = 113;
   renderSetup();
   showPage('setup');
 }
@@ -750,6 +774,8 @@ let compWinners  = {};
 let currentHole  = 0;
 let courseName   = 'Shortland Waters';
 let selectedTee  = 'yellow';
+let courseRating = 71.0;
+let slopeRating  = 113;
 
 PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
 for (let i = 0; i < 18; i++) compWinners[i] = { ctp: '', ld: '' };
@@ -824,11 +850,35 @@ function renderSetup() {
       <div class="player-name-label">${p.name}</div>
       <span class="player-team-badge ${p.team==='A'?'team-a-badge':'team-b-badge'}">Team ${p.team}</span>
       <div style="display:flex;align-items:center;gap:4px;">
-        <span style="font-size:10px;color:rgba(245,240,232,0.4);">HCP</span>
-        <input class="hcp-input" type="number" min="0" max="54" value="${handicaps[p.id]}"
-          oninput="handicaps['${p.id}']=parseInt(this.value)||0;saveState()" inputmode="numeric">
+        <span style="font-size:10px;color:rgba(245,240,232,0.4);">HI</span>
+        <input class="hcp-input" type="number" step="0.1" min="0" max="54" value="${handicaps[p.id]}"
+          oninput="handicaps['${p.id}']=parseFloat(this.value)||0;saveState();renderDailyHcps()" inputmode="decimal">
       </div>
     </div>`).join('');
+  const crEl = document.getElementById('course-rating-input');
+  const srEl = document.getElementById('slope-rating-input');
+  if (crEl) crEl.value = courseRating;
+  if (srEl) srEl.value = slopeRating;
+  renderDailyHcps();
+}
+
+function renderDailyHcps() {
+  const el = document.getElementById('daily-hcp-list');
+  if (!el) return;
+  const coursePar = pars.reduce((a, b) => a + b, 0);
+  el.innerHTML = PLAYERS.map(p => {
+    const hi = parseFloat(handicaps[p.id]) || 0;
+    const courseHcp = hi * (slopeRating / 113) + (courseRating - coursePar);
+    const playingHcp = Math.round(courseHcp * 0.95);
+    return `<div class="player-row" style="padding:6px 0;">
+      <div class="player-dot" style="background:${p.color}"></div>
+      <div class="player-name-label">${p.name}</div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:10px;color:rgba(245,240,232,0.4);">Playing HCP</span>
+        <span style="font-size:18px;font-weight:700;color:var(--green-bright);min-width:28px;text-align:right;">${playingHcp}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════════════
