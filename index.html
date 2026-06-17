@@ -1215,8 +1215,8 @@ function renderWolfHoleSection(h) {
     } else if (mode === 'partner' && wh.partnerId) {
       const partnerPts = stablefordPoints(scores[wh.partnerId][h], pars[h], wh.partnerId, h) ?? 0;
       const otherTwo   = others.filter(p => p.id !== wh.partnerId);
-      const wolfTeam   = wolfPts + partnerPts;
-      const otherTeam  = otherTwo.reduce((s, p) => s + (stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0), 0);
+      const wolfTeam   = Math.max(wolfPts, partnerPts);
+      const otherTeam  = Math.max(...otherTwo.map(p => stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0));
       const partner    = PLAYERS.find(p => p.id === wh.partnerId);
       if (wolfTeam > otherTeam)
         resultHtml = `<div style="margin-top:9px;font-size:11px;font-weight:600;color:var(--green-bright);">✅ ${wolf.name} & ${partner.name} win · +2 each</div>`;
@@ -1273,8 +1273,8 @@ function calcWolf() {
     } else if (wh.mode === 'partner' && wh.partnerId) {
       const pPts      = stablefordPoints(scores[wh.partnerId][h], pars[h], wh.partnerId, h) ?? 0;
       const otherTwo  = others.filter(p => p.id !== wh.partnerId);
-      const wolfTeam  = wolfPts + pPts;
-      const otherTeam = otherTwo.reduce((s, p) => s + (stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0), 0);
+      const wolfTeam  = Math.max(wolfPts, pPts);
+      const otherTeam = Math.max(...otherTwo.map(p => stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0));
       if (wolfTeam > otherTeam)      { pm[wolfId] = 2; pm[wh.partnerId] = 2; }
       else if (wolfTeam < otherTeam) otherTwo.forEach(p => pm[p.id] = 3);
     }
