@@ -1522,40 +1522,6 @@ function renderGrossNetSection() {
 // ══════════════════════════════════════════════
 // COURSE PAGE
 // ══════════════════════════════════════════════
-function renderCourseTable() {
-  const rows = HOLE_DATA.map((_, i) => {
-    const par = pars[i];
-    const idx = indices[i];
-    const typeLabel = par===3 ? '<span class="ct-type ct-type-3">Par 3 · CTP</span>' :
-                      par===5 ? '<span class="ct-type ct-type-5">Par 5 · LD</span>' :
-                                '<span class="ct-type ct-type-4">Par 4</span>';
-    const rowClass = par===3 ? 'par3-row' : par===5 ? 'par5-row' : '';
-    return `<tr class="${rowClass}">
-      <td class="ct-hole">${i+1}</td>
-      <td>
-        <button class="ct-par-btn" onclick="adjustCoursePar(${i},-1)">−</button>
-        <span class="ct-par-val" id="ctp-${i}">${par}</span>
-        <button class="ct-par-btn" onclick="adjustCoursePar(${i},1)">+</button>
-      </td>
-      <td>
-        <input class="ct-idx-input" type="number" min="1" max="18" value="${idx}"
-          id="cti-${i}" oninput="indices[${i}]=parseInt(this.value)||${idx};saveState()" inputmode="numeric">
-      </td>
-      <td>${typeLabel}</td>
-    </tr>`;
-  }).join('');
-  document.getElementById('course-table').innerHTML = `
-    <thead><tr>
-      <th>Hole</th><th>Par</th><th>SI</th><th>Type</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>`;
-}
-
-function adjustCoursePar(hole, delta) {
-  pars[hole] = Math.max(3, Math.min(5, pars[hole] + delta));
-  saveState();
-  renderCourseTable();
-}
 
 // ══════════════════════════════════════════════
 // SCORE PAGE
