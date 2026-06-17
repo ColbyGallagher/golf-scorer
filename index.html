@@ -226,7 +226,19 @@
         style="width:100%;padding:8px 11px;background:rgba(0,0,0,0.3);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;box-sizing:border-box;"
         oninput="courseName=this.value;saveState()">
     </div>
-    <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:10px;">Scan the scorecard — AI reads all tee data, then pick your tees.</div>
+    <div style="position:relative;margin-bottom:10px;">
+      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;">🔍</span>
+      <input id="course-search-input" type="text" placeholder="Search saved courses…" autocomplete="off"
+        style="width:100%;padding:8px 11px 8px 32px;background:rgba(0,0,0,0.25);border:1px solid rgba(245,240,232,0.12);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;box-sizing:border-box;"
+        onfocus="onCourseSearchFocus()" oninput="onCourseSearchInput(this.value)" onblur="onCourseSearchBlur()">
+      <div id="course-search-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#162018;border:1px solid rgba(78,186,122,0.22);border-radius:9px;max-height:210px;overflow-y:auto;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <div style="flex:1;height:1px;background:rgba(245,240,232,0.08);"></div>
+      <span style="font-size:10px;color:rgba(245,240,232,0.22);letter-spacing:1px;text-transform:uppercase;">or scan new</span>
+      <div style="flex:1;height:1px;background:rgba(245,240,232,0.08);"></div>
+    </div>
+    <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:10px;">Take or choose a photo — AI reads all tee data, then pick your tees.</div>
     <input type="file" id="scorecard-img-input" accept="image/*" style="display:none" onchange="handleScorecardImage(event)">
     <input type="file" id="scorecard-img-camera" accept="image/*" capture="environment" style="display:none" onchange="handleScorecardImage(event)">
     <div style="display:flex;gap:8px;">
@@ -1344,6 +1356,96 @@ function showPage(name) {
 }
 
 // ══════════════════════════════════════════════
+// COURSE LIBRARY — search & load from Supabase
+// ══════════════════════════════════════════════
+let savedCourses  = null;   // null = not yet fetched
+let _courseHits   = [];     // current dropdown results
+
+async function fetchSavedCourses() {
+  if (savedCourses !== null) return savedCourses;
+  try {
+    const { data, error } = await db.from('scorecards')
+      .select('id, course_name, tees, scanned_at')
+      .order('scanned_at', { ascending: false });
+    if (error || !data) { savedCourses = []; return []; }
+    const seen = new Set();
+    savedCourses = data.filter(c => {
+      const key = (c.course_name || '').trim().toLowerCase();
+      if (!key || key === 'unknown' || !c.tees || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  } catch(e) { savedCourses = []; }
+  return savedCourses;
+}
+
+async function onCourseSearchFocus() {
+  await fetchSavedCourses();
+  onCourseSearchInput(document.getElementById('course-search-input').value);
+}
+
+function onCourseSearchInput(query) {
+  const resultsEl = document.getElementById('course-search-results');
+  if (!savedCourses) return;
+  const q = query.trim().toLowerCase();
+  _courseHits = q
+    ? savedCourses.filter(c => c.course_name.toLowerCase().includes(q))
+    : savedCourses;
+  if (!_courseHits.length) {
+    resultsEl.innerHTML = `<div style="padding:12px;font-size:12px;color:rgba(245,240,232,0.3);text-align:center;">${q ? 'No matching courses' : 'No saved courses yet'}</div>`;
+    resultsEl.style.display = 'block';
+    return;
+  }
+  resultsEl.innerHTML = _courseHits.map((c, i) => {
+    const teeNames = Object.keys(c.tees || {});
+    const date = new Date(c.scanned_at).toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' });
+    return `<div onmousedown="selectSavedCourse(${i})"
+      style="padding:10px 13px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.1s;"
+      onmouseover="this.style.background='rgba(78,186,122,0.09)'"
+      onmouseout="this.style.background=''">
+      <div style="font-size:13px;font-weight:600;">${c.course_name}</div>
+      <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:2px;">${teeNames.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join(' · ')} &nbsp;·&nbsp; ${date}</div>
+    </div>`;
+  }).join('');
+  resultsEl.style.display = 'block';
+}
+
+function onCourseSearchBlur() {
+  setTimeout(() => {
+    const el = document.getElementById('course-search-results');
+    if (el) el.style.display = 'none';
+  }, 150);
+}
+
+function selectSavedCourse(idx) {
+  const course = _courseHits[idx];
+  if (!course) return;
+  document.getElementById('course-search-results').style.display = 'none';
+  document.getElementById('course-search-input').value = '';
+
+  courseName = course.course_name;
+  const ni = document.getElementById('course-name-input');
+  if (ni) { ni.value = courseName; }
+  saveState();
+  updateHeader();
+
+  lastScanResult = { courseName: course.course_name, tees: course.tees };
+  lastScanSaved  = true;
+  lastScanImage  = null;
+
+  const statusEl   = document.getElementById('scan-status');
+  const previewWrap = document.getElementById('scan-preview-wrap');
+  const msgEl      = document.getElementById('scan-message');
+  statusEl.style.display    = 'block';
+  previewWrap.style.display = 'none';
+  msgEl.style.background = 'rgba(78,186,122,0.12)';
+  msgEl.style.color      = 'var(--green-bright)';
+  const teeNames = Object.keys(course.tees || {});
+  msgEl.textContent = `✅ ${course.course_name} loaded from library · pick your tees below`;
+  renderTeeOptions(course.tees, teeNames);
+}
+
+// ══════════════════════════════════════════════
 // SCORECARD SCAN — photo → AI → pick tees → apply
 // ══════════════════════════════════════════════
 let lastScanResult = null;
@@ -1389,6 +1491,7 @@ function handleScorecardImage(event) {
   const preview   = document.getElementById('scan-preview');
   const teeSection = document.getElementById('tee-select-section');
   statusEl.style.display = 'block';
+  document.getElementById('scan-preview-wrap').style.display = '';
   teeSection.style.display = 'none';
   lastScanResult = null;
   lastScanImage  = null;
