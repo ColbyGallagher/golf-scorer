@@ -217,58 +217,16 @@
 
 <!-- ══ SETUP PAGE ══ -->
 <div id="page-setup" class="page active">
-  <div class="card">
-    <div class="card-title">👥 Players & Handicaps</div>
-    <div id="player-setup-list"></div>
-  </div>
-  <div class="card">
-    <div class="card-title">📐 Daily Handicaps</div>
-    <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:12px;">WHS: Playing HCP = round(HI × (Slope ÷ 113) + (Course Rating − Par)) × 95%</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-      <div>
-        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.4);margin-bottom:4px;">Course Rating</div>
-        <input id="course-rating-input" type="number" step="0.1" min="60" max="80"
-          class="hcp-input" style="width:100%;box-sizing:border-box;"
-          oninput="courseRating=parseFloat(this.value)||71;saveState();renderDailyHcps()" inputmode="decimal">
-      </div>
-      <div>
-        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.4);margin-bottom:4px;">Slope Rating</div>
-        <input id="slope-rating-input" type="number" step="1" min="55" max="155"
-          class="hcp-input" style="width:100%;box-sizing:border-box;"
-          oninput="slopeRating=parseInt(this.value)||113;saveState();renderDailyHcps()" inputmode="numeric">
-      </div>
-    </div>
-    <div id="daily-hcp-list"></div>
-  </div>
-  <div class="card">
-    <div class="card-title">🤝 Teams</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
-      <div style="background:rgba(78,186,122,0.08);border:1px solid rgba(78,186,122,0.2);border-radius:10px;padding:11px;">
-        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--team-a);margin-bottom:5px;">Team A</div>
-        <div style="font-size:13px;font-weight:600;">Colby & Mitch</div>
-      </div>
-      <div style="background:rgba(85,153,204,0.08);border:1px solid rgba(85,153,204,0.2);border-radius:10px;padding:11px;">
-        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--team-b);margin-bottom:5px;">Team B</div>
-        <div style="font-size:13px;font-weight:600;">Dave & Scott</div>
-      </div>
-    </div>
-    <div style="margin-top:10px;font-size:11px;color:rgba(245,240,232,0.5);">Multiplier game: best Stableford score per team multiplied together each hole.</div>
-  </div>
-  <button class="btn-primary" onclick="showPage('course')">Review Course →</button>
-  <div style="margin-top:10px;text-align:center;">
-    <button onclick="resetState()" style="background:none;border:none;color:rgba(245,240,232,0.25);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;padding:6px;">
-      🔄 Reset & start new round
-    </button>
-  </div>
-</div>
 
-<!-- ══ COURSE PAGE ══ -->
-<div id="page-course" class="page">
-
-  <!-- Scan card -->
+  <!-- 1: Course & Scorecard -->
   <div class="card">
-    <div class="card-title">📷 Scan Scorecard</div>
-    <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:12px;">Take or choose a photo of the physical scorecard — AI will read all tee data, then you pick your tees.</div>
+    <div class="card-title">⛳ Course & Scorecard</div>
+    <div style="margin-bottom:10px;">
+      <input id="course-name-input" type="text" placeholder="Course name"
+        style="width:100%;padding:8px 11px;background:rgba(0,0,0,0.3);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;box-sizing:border-box;"
+        oninput="courseName=this.value;saveState()">
+    </div>
+    <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:10px;">Scan the scorecard — AI reads all tee data, then pick your tees.</div>
     <input type="file" id="scorecard-img-input" accept="image/*" style="display:none" onchange="handleScorecardImage(event)">
     <input type="file" id="scorecard-img-camera" accept="image/*" capture="environment" style="display:none" onchange="handleScorecardImage(event)">
     <div style="display:flex;gap:8px;">
@@ -287,14 +245,57 @@
     </div>
   </div>
 
-  <!-- Course name + hole table -->
+  <!-- 2: Game Format -->
+  <div class="card">
+    <div class="card-title">🎮 Game Format</div>
+    <div id="game-format-list"></div>
+  </div>
+
+  <!-- 3: Players & Handicaps -->
+  <div class="card">
+    <div class="card-title">👥 Players & Handicaps</div>
+    <div id="player-setup-list"></div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(245,240,232,0.08);">
+      <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:8px;">Daily Handicap — WHS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div>
+          <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-bottom:4px;">Course Rating</div>
+          <input id="course-rating-input" type="number" step="0.1" min="60" max="80"
+            class="hcp-input" style="width:100%;box-sizing:border-box;"
+            oninput="courseRating=parseFloat(this.value)||71;saveState();renderDailyHcps()" inputmode="decimal">
+        </div>
+        <div>
+          <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-bottom:4px;">Slope Rating</div>
+          <input id="slope-rating-input" type="number" step="1" min="55" max="155"
+            class="hcp-input" style="width:100%;box-sizing:border-box;"
+            oninput="slopeRating=parseInt(this.value)||113;saveState();renderDailyHcps()" inputmode="numeric">
+        </div>
+      </div>
+      <div id="daily-hcp-list"></div>
+    </div>
+  </div>
+
+  <!-- 4: Teams -->
+  <div class="card">
+    <div class="card-title">🤝 Teams</div>
+    <div id="team-setup-list"></div>
+  </div>
+
+  <div style="display:flex;gap:8px;">
+    <button class="btn-secondary" style="flex:1;" onclick="showPage('course')">Edit Holes</button>
+    <button class="btn-primary" style="flex:2;" onclick="showPage('score')">Start Scoring →</button>
+  </div>
+  <div style="margin-top:10px;text-align:center;">
+    <button onclick="resetState()" style="background:none;border:none;color:rgba(245,240,232,0.25);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;padding:6px;">
+      🔄 Reset & start new round
+    </button>
+  </div>
+</div>
+
+<!-- ══ COURSE PAGE ══ -->
+<div id="page-course" class="page">
   <div class="card">
     <div class="card-title">⛳ Hole Setup — Par & Index</div>
-    <div style="margin-bottom:10px;">
-      <input id="course-name-input" type="text" placeholder="Course name (e.g. Shortland Waters)" value="Shortland Waters"
-        style="width:100%;padding:8px 11px;background:rgba(0,0,0,0.3);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;"
-        oninput="courseName=this.value;saveState()">
-    </div>
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
       <table class="course-table" id="course-table"></table>
     </div>
@@ -723,7 +724,7 @@ function saveState() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
       handicaps, pars, indices, scores, compWinners, currentHole, courseName, selectedTee,
-      courseRating, slopeRating
+      courseRating, slopeRating, teamAssignments
     }));
     const el = document.getElementById('save-indicator');
     if (el) { el.style.color='rgba(78,186,122,1)'; setTimeout(()=>{ el.style.color='rgba(78,186,122,0.5)'; }, 600); }
@@ -743,8 +744,9 @@ function loadState() {
     if (typeof s.currentHole === 'number') currentHole = s.currentHole;
     if (s.courseName)   courseName   = s.courseName;
     if (s.selectedTee)  selectedTee  = s.selectedTee;
-    if (typeof s.courseRating === 'number') courseRating = s.courseRating;
-    if (typeof s.slopeRating  === 'number') slopeRating  = s.slopeRating;
+    if (typeof s.courseRating === 'number') courseRating    = s.courseRating;
+    if (typeof s.slopeRating  === 'number') slopeRating     = s.slopeRating;
+    if (s.teamAssignments)                  teamAssignments = s.teamAssignments;
     return true;
   } catch(e) { return false; }
 }
@@ -760,8 +762,9 @@ function resetState() {
   currentHole  = 0;
   courseName   = 'Shortland Waters';
   selectedTee  = 'yellow';
-  courseRating = 71.0;
-  slopeRating  = 113;
+  courseRating    = 71.0;
+  slopeRating     = 113;
+  teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
   renderSetup();
   showPage('setup');
 }
@@ -774,8 +777,9 @@ let compWinners  = {};
 let currentHole  = 0;
 let courseName   = 'Shortland Waters';
 let selectedTee  = 'yellow';
-let courseRating = 71.0;
-let slopeRating  = 113;
+let courseRating    = 71.0;
+let slopeRating     = 113;
+let teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
 
 PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
 for (let i = 0; i < 18; i++) compWinners[i] = { ctp: '', ld: '' };
@@ -825,9 +829,10 @@ function totalStableford(pid) {
 }
 
 function teamMultiplierHole(hole) {
-  // Sum both players' Stableford points per team, then multiply the two team totals together
-  const sumA = ['colby','mitch'].reduce((s,p) => s + (stablefordPoints(scores[p][hole], pars[hole], p, hole) ?? 0), 0);
-  const sumB = ['dave','scott'].reduce((s,p) => s + (stablefordPoints(scores[p][hole], pars[hole], p, hole) ?? 0), 0);
+  const sumA = PLAYERS.filter(p => teamAssignments[p.id] === 'A')
+    .reduce((s,p) => s + (stablefordPoints(scores[p.id][hole], pars[hole], p.id, hole) ?? 0), 0);
+  const sumB = PLAYERS.filter(p => teamAssignments[p.id] === 'B')
+    .reduce((s,p) => s + (stablefordPoints(scores[p.id][hole], pars[hole], p.id, hole) ?? 0), 0);
   return { sumA, sumB, product: sumA * sumB };
 }
 
@@ -844,12 +849,13 @@ function teamTotals() {
 // SETUP PAGE
 // ══════════════════════════════════════════════
 function renderSetup() {
+  const cnEl = document.getElementById('course-name-input');
+  if (cnEl) cnEl.value = courseName;
   document.getElementById('player-setup-list').innerHTML = PLAYERS.map(p => `
     <div class="player-row">
       <div class="player-dot" style="background:${p.color}"></div>
       <div class="player-name-label">${p.name}</div>
-      <span class="player-team-badge ${p.team==='A'?'team-a-badge':'team-b-badge'}">Team ${p.team}</span>
-      <div style="display:flex;align-items:center;gap:4px;">
+      <div style="display:flex;align-items:center;gap:4px;margin-left:auto;">
         <span style="font-size:10px;color:rgba(245,240,232,0.4);">HI</span>
         <input class="hcp-input" type="number" step="0.1" min="0" max="54" value="${handicaps[p.id]}"
           oninput="handicaps['${p.id}']=parseFloat(this.value)||0;saveState();renderDailyHcps()" inputmode="decimal">
@@ -859,7 +865,77 @@ function renderSetup() {
   const srEl = document.getElementById('slope-rating-input');
   if (crEl) crEl.value = courseRating;
   if (srEl) srEl.value = slopeRating;
+  renderGameFormat();
   renderDailyHcps();
+  renderTeamSetup();
+}
+
+function renderGameFormat() {
+  const el = document.getElementById('game-format-list');
+  if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:rgba(78,186,122,0.06);border:1px solid rgba(78,186,122,0.15);border-radius:9px;">
+        <span style="font-size:15px;">🏌️</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;">Individual Stableford</div>
+          <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:1px;">All players score Stableford points</div>
+        </div>
+        <span style="margin-left:auto;color:var(--green-bright);font-size:11px;font-weight:700;">ON</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:rgba(78,186,122,0.06);border:1px solid rgba(78,186,122,0.15);border-radius:9px;">
+        <span style="font-size:15px;">✖️</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;">Team Multiplier</div>
+          <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:1px;">Team totals × each other per hole</div>
+        </div>
+        <span style="margin-left:auto;color:var(--green-bright);font-size:11px;font-weight:700;">ON</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;background:rgba(78,186,122,0.06);border:1px solid rgba(78,186,122,0.15);border-radius:9px;">
+        <span style="font-size:15px;">🎯</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;">CTP & Long Drive</div>
+          <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:1px;">Closest to pin (par 3) · Long drive (par 5)</div>
+        </div>
+        <span style="margin-left:auto;color:var(--green-bright);font-size:11px;font-weight:700;">ON</span>
+      </div>
+    </div>`;
+}
+
+function renderTeamSetup() {
+  const el = document.getElementById('team-setup-list');
+  if (!el) return;
+  const teamAPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'A');
+  const teamBPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'B');
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;">
+      <div style="background:rgba(78,186,122,0.08);border:1px solid rgba(78,186,122,0.2);border-radius:10px;padding:11px;">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--team-a);margin-bottom:5px;">Team A</div>
+        ${teamAPlayers.length ? teamAPlayers.map(p=>`<div style="font-size:13px;font-weight:600;">${p.name}</div>`).join('') : '<div style="font-size:11px;color:rgba(245,240,232,0.25);">— empty —</div>'}
+      </div>
+      <div style="background:rgba(85,153,204,0.08);border:1px solid rgba(85,153,204,0.2);border-radius:10px;padding:11px;">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--team-b);margin-bottom:5px;">Team B</div>
+        ${teamBPlayers.length ? teamBPlayers.map(p=>`<div style="font-size:13px;font-weight:600;">${p.name}</div>`).join('') : '<div style="font-size:11px;color:rgba(245,240,232,0.25);">— empty —</div>'}
+      </div>
+    </div>
+    ${PLAYERS.map(p => {
+      const inA = teamAssignments[p.id] === 'A';
+      return `<div class="player-row" style="padding:6px 0;">
+        <div class="player-dot" style="background:${p.color}"></div>
+        <div class="player-name-label">${p.name}</div>
+        <div style="display:flex;gap:5px;margin-left:auto;">
+          <button onclick="setTeam('${p.id}','A')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;transition:all 0.15s;${inA ? 'background:rgba(78,186,122,0.25);border-color:var(--team-a);color:var(--team-a);' : 'background:transparent;border-color:rgba(245,240,232,0.15);color:rgba(245,240,232,0.3);'}">A</button>
+          <button onclick="setTeam('${p.id}','B')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;transition:all 0.15s;${!inA ? 'background:rgba(85,153,204,0.25);border-color:var(--team-b);color:var(--team-b);' : 'background:transparent;border-color:rgba(245,240,232,0.15);color:rgba(245,240,232,0.3);'}">B</button>
+        </div>
+      </div>`;
+    }).join('')}
+    <div style="margin-top:8px;font-size:11px;color:rgba(245,240,232,0.4);">Multiplier game: best Stableford per team × each other each hole.</div>`;
+}
+
+function setTeam(pid, team) {
+  teamAssignments[pid] = team;
+  saveState();
+  renderTeamSetup();
 }
 
 function renderDailyHcps() {
@@ -971,7 +1047,7 @@ function renderHole() {
       <div class="score-player-dot" style="background:${p.color}"></div>
       <div class="score-player-info">
         <div class="score-player-name">${p.name}${dots}</div>
-        <div class="score-player-sub">HCP ${handicaps[p.id]} · ${sr} stroke${sr!==1?'s':''} · Team ${p.team}</div>
+        <div class="score-player-sub">HCP ${handicaps[p.id]} · ${sr} stroke${sr!==1?'s':''} · Team ${teamAssignments[p.id]}</div>
       </div>
       <div class="score-controls">
         <button class="score-btn" onclick="adjustScore('${p.id}',${h},-1)">−</button>
@@ -1074,10 +1150,15 @@ function renderScorecard() {
 // ══════════════════════════════════════════════
 function renderTeams() {
   const {totA, totB, mult} = teamTotals();
+  const teamAPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'A');
+  const teamBPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'B');
+  const teamAName = teamAPlayers.map(p => p.name).join(' & ') || 'Team A';
+  const teamBName = teamBPlayers.map(p => p.name).join(' & ') || 'Team B';
+
+  const diff = totA - totB;
   let resultHTML = '';
-  const diff = totA-totB;
-  if (diff>0) resultHTML=`<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-a);">Colby & Mitch</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`;
-  else if (diff<0) resultHTML=`<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-b);">Dave & Scott</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`;
+  if (diff>0) resultHTML=`<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-a);">${teamAName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`;
+  else if (diff<0) resultHTML=`<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-b);">${teamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`;
   else resultHTML=`<div class="result-banner" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);"><div class="result-label">Status</div><div class="result-text" style="color:var(--gold);">All Square</div></div>`;
 
   let holeRows='';
@@ -1096,14 +1177,14 @@ function renderTeams() {
 
   document.getElementById('teams-content').innerHTML = resultHTML +
     `<div class="team-card team-a-card">
-      <div class="team-name">Colby & Mitch</div>
+      <div class="team-name">${teamAName}</div>
       <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-a);">${totA} pts</span></div>
-      ${['colby','mitch'].map(pid=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${PLAYERS.find(x=>x.id===pid).name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(pid)} pts</span></div>`).join('')}
+      ${teamAPlayers.map(p=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${p.name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(p.id)} pts</span></div>`).join('')}
     </div>
     <div class="team-card team-b-card">
-      <div class="team-name">Dave & Scott</div>
+      <div class="team-name">${teamBName}</div>
       <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-b);">${totB} pts</span></div>
-      ${['dave','scott'].map(pid=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${PLAYERS.find(x=>x.id===pid).name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(pid)} pts</span></div>`).join('')}
+      ${teamBPlayers.map(p=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${p.name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(p.id)} pts</span></div>`).join('')}
     </div>
     <div class="card">
       <div class="card-title">✖️ Multiplier Breakdown</div>
@@ -1362,8 +1443,6 @@ function updateHeader() {
 loadState();
 renderSetup();
 updateHeader();
-const _cni = document.getElementById('course-name-input');
-if (_cni) _cni.value = courseName;
 
 // ══════════════════════════════════════════════
 // PWA — register service worker for offline play
