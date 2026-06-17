@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Shortland Waters · Scorecard</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#0d2818">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Golf Scorer">
 <style>
   :root {
     --green-deep: #0d2818;
@@ -148,6 +154,8 @@
   .score-btn:active { background: rgba(255,255,255,0.1); }
   .score-display { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; color: var(--cream); min-width: 34px; text-align: center; }
   .score-points { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 600; min-width: 34px; text-align: center; padding: 4px 7px; border-radius: 6px; flex-shrink: 0; }
+  .three-putt-btn { padding: 3px 7px; border-radius: 8px; background: rgba(245,240,232,0.05); border: 1px solid rgba(245,240,232,0.1); color: rgba(245,240,232,0.3); font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 600; cursor: pointer; letter-spacing: 0.3px; flex-shrink: 0; }
+  .three-putt-on { background: rgba(204,85,85,0.15) !important; border-color: rgba(204,85,85,0.4) !important; color: #e07070 !important; }
   .pts-null { color: rgba(245,240,232,0.2); }
   .pts-0 { color: var(--red); background: rgba(224,85,85,0.12); }
   .pts-1 { color: rgba(245,240,232,0.6); background: rgba(255,255,255,0.06); }
@@ -201,7 +209,6 @@
 
 <div class="nav-tabs">
   <div class="nav-tab active" onclick="showPage('setup')">⚙️ Setup</div>
-  <div class="nav-tab" onclick="showPage('course')">⛳ Course</div>
   <div class="nav-tab" onclick="showPage('score')">🏌️ Score</div>
   <div class="nav-tab" onclick="showPage('card')">📋 Card</div>
   <div class="nav-tab" onclick="showPage('teams')">🏆 Teams</div>
@@ -211,72 +218,134 @@
 
 <!-- ══ SETUP PAGE ══ -->
 <div id="page-setup" class="page active">
-  <div class="card">
-    <div class="card-title">👥 Players & Handicaps</div>
-    <div id="player-setup-list"></div>
+  <div id="setup-wizard">
+
+  <!-- Stepper indicator -->
+  <div style="display:flex;align-items:flex-start;justify-content:center;gap:0;margin-bottom:18px;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div id="step-dot-1" onclick="goToSetupStep(1)"
+        style="width:30px;height:30px;border-radius:50%;background:var(--green-bright);color:#0a1a0d;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:default;transition:all 0.2s;flex-shrink:0;">1</div>
+      <div id="step-label-1" style="font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:var(--green-bright);white-space:nowrap;">Course</div>
+    </div>
+    <div id="step-line-1" style="height:2px;width:44px;background:rgba(245,240,232,0.12);margin-top:14px;flex-shrink:0;transition:background 0.3s;"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div id="step-dot-2" onclick="goToSetupStep(2)"
+        style="width:30px;height:30px;border-radius:50%;background:rgba(245,240,232,0.1);color:rgba(245,240,232,0.3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:default;transition:all 0.2s;flex-shrink:0;">2</div>
+      <div id="step-label-2" style="font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:rgba(245,240,232,0.3);white-space:nowrap;">Game</div>
+    </div>
+    <div id="step-line-2" style="height:2px;width:44px;background:rgba(245,240,232,0.12);margin-top:14px;flex-shrink:0;transition:background 0.3s;"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div id="step-dot-3" onclick="goToSetupStep(3)"
+        style="width:30px;height:30px;border-radius:50%;background:rgba(245,240,232,0.1);color:rgba(245,240,232,0.3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:default;transition:all 0.2s;flex-shrink:0;">3</div>
+      <div id="step-label-3" style="font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:rgba(245,240,232,0.3);white-space:nowrap;">Players</div>
+    </div>
   </div>
-  <div class="card">
-    <div class="card-title">🤝 Teams</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
-      <div style="background:rgba(78,186,122,0.08);border:1px solid rgba(78,186,122,0.2);border-radius:10px;padding:11px;">
-        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--team-a);margin-bottom:5px;">Team A</div>
-        <div style="font-size:13px;font-weight:600;">Colby & Mitch</div>
+
+  <!-- ── Step 1: Course & Scorecard ── -->
+  <div id="setup-step-1">
+    <div class="card">
+      <div class="card-title">⛳ Course & Scorecard</div>
+      <div style="margin-bottom:10px;">
+        <input id="course-name-input" type="text" placeholder="Course name"
+          style="width:100%;padding:8px 11px;background:rgba(0,0,0,0.3);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;box-sizing:border-box;"
+          oninput="courseName=this.value;saveState()">
       </div>
-      <div style="background:rgba(85,153,204,0.08);border:1px solid rgba(85,153,204,0.2);border-radius:10px;padding:11px;">
-        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--team-b);margin-bottom:5px;">Team B</div>
-        <div style="font-size:13px;font-weight:600;">Dave & Scott</div>
+      <div style="position:relative;margin-bottom:10px;">
+        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;">🔍</span>
+        <input id="course-search-input" type="text" placeholder="Search saved courses…" autocomplete="off"
+          style="width:100%;padding:8px 11px 8px 32px;background:rgba(0,0,0,0.25);border:1px solid rgba(245,240,232,0.12);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;box-sizing:border-box;"
+          onfocus="onCourseSearchFocus()" oninput="onCourseSearchInput(this.value)" onblur="onCourseSearchBlur()">
+        <div id="course-search-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#162018;border:1px solid rgba(78,186,122,0.22);border-radius:9px;max-height:210px;overflow-y:auto;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="flex:1;height:1px;background:rgba(245,240,232,0.08);"></div>
+        <span style="font-size:10px;color:rgba(245,240,232,0.22);letter-spacing:1px;text-transform:uppercase;">or scan new</span>
+        <div style="flex:1;height:1px;background:rgba(245,240,232,0.08);"></div>
+      </div>
+      <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:10px;">Take or choose a photo — AI reads all tee data, then pick your tees.</div>
+      <input type="file" id="scorecard-img-input" accept="image/*" style="display:none" onchange="handleScorecardImage(event)">
+      <input type="file" id="scorecard-img-camera" accept="image/*" capture="environment" style="display:none" onchange="handleScorecardImage(event)">
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" style="margin-bottom:0;" onclick="document.getElementById('scorecard-img-input').click()">🖼️ Choose Photo</button>
+        <button class="btn-primary" style="margin-bottom:0;" onclick="document.getElementById('scorecard-img-camera').click()">📷 Take Photo</button>
+      </div>
+      <div id="scan-status" style="margin-top:10px;display:none;">
+        <div id="scan-preview-wrap" style="margin-bottom:10px;border-radius:10px;overflow:hidden;max-height:160px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);">
+          <img id="scan-preview" style="max-width:100%;max-height:160px;object-fit:contain;" />
+        </div>
+        <div id="scan-message" style="text-align:center;font-size:12px;padding:8px;border-radius:8px;"></div>
+      </div>
+      <div id="tee-select-section" style="display:none;margin-top:12px;">
+        <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:7px;">Select Your Tees</div>
+        <div id="tee-options" style="display:flex;gap:7px;flex-wrap:wrap;"></div>
       </div>
     </div>
-    <div style="margin-top:10px;font-size:11px;color:rgba(245,240,232,0.5);">Multiplier game: best Stableford score per team multiplied together each hole.</div>
+    <!-- Hole confirmation — revealed after tee is applied -->
+    <div id="course-confirm-section" style="display:none;">
+      <div class="card">
+        <div class="card-title">📋 Confirm Holes</div>
+        <div id="course-confirm-table"></div>
+      </div>
+    </div>
+    <button class="btn-primary" style="width:100%;" onclick="showSetupStep(2)">Next — Game Format →</button>
   </div>
-  <button class="btn-primary" onclick="showPage('course')">Review Course →</button>
-  <div style="margin-top:10px;text-align:center;">
-    <button onclick="resetState()" style="background:none;border:none;color:rgba(245,240,232,0.25);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;padding:6px;">
-      🔄 Reset & start new round
+
+  <!-- ── Step 2: Game Format ── -->
+  <div id="setup-step-2" style="display:none;">
+    <div class="card">
+      <div class="card-title">🎮 Game Format</div>
+      <div id="game-format-list"></div>
+      <div id="wolf-order-section"></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-secondary" style="flex:1;" onclick="showSetupStep(1)">← Back</button>
+      <button class="btn-primary" style="flex:2;" onclick="showSetupStep(3)">Next — Players →</button>
+    </div>
+  </div>
+
+  <!-- ── Step 3: Players & Teams ── -->
+  <div id="setup-step-3" style="display:none;">
+    <div class="card">
+      <div class="card-title">👥 Players & Handicaps</div>
+      <div id="player-setup-list"></div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(245,240,232,0.08);">
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:8px;">Daily Handicap — WHS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-bottom:4px;">Course Rating</div>
+            <input id="course-rating-input" type="number" step="0.1" min="60" max="80"
+              class="hcp-input" style="width:100%;box-sizing:border-box;"
+              oninput="courseRating=parseFloat(this.value)||71;saveState();renderDailyHcps()" inputmode="decimal">
+          </div>
+          <div>
+            <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-bottom:4px;">Slope Rating</div>
+            <input id="slope-rating-input" type="number" step="1" min="55" max="155"
+              class="hcp-input" style="width:100%;box-sizing:border-box;"
+              oninput="slopeRating=parseInt(this.value)||113;saveState();renderDailyHcps()" inputmode="numeric">
+          </div>
+        </div>
+        <div id="daily-hcp-list"></div>
+      </div>
+    </div>
+    <div id="teams-setup-card" class="card">
+      <div class="card-title">🤝 Teams</div>
+      <div id="team-setup-list"></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-secondary" style="flex:1;" onclick="showSetupStep(2)">← Back</button>
+      <button class="btn-primary" style="flex:2;" onclick="startGame()">Start Scoring →</button>
+    </div>
+  </div>
+
+  </div><!-- /setup-wizard -->
+
+  <div id="setup-active" style="display:none;padding-top:4px;">
+    <div id="active-game-summary"></div>
+    <button onclick="endGame()"
+      style="width:100%;padding:14px;margin-top:8px;background:rgba(200,60,60,0.1);border:1px solid rgba(200,60,60,0.28);border-radius:12px;color:#ff7070;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;">
+      End Game
     </button>
   </div>
-</div>
-
-<!-- ══ COURSE PAGE ══ -->
-<div id="page-course" class="page">
-
-  <!-- Scan card -->
-  <div class="card">
-    <div class="card-title">📷 Scan Scorecard</div>
-    <div style="font-size:11px;color:rgba(245,240,232,0.45);margin-bottom:12px;">Take or choose a photo of the physical scorecard and AI will read the pars and stroke indices automatically.</div>
-    <div style="margin-bottom:12px;">
-      <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(245,240,232,0.35);margin-bottom:7px;">Tee Colour</div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;">
-        <button class="tee-btn active" data-tee="yellow" onclick="selectTee(this,'yellow')" style="background:rgba(255,215,0,0.18);border:2px solid rgba(255,215,0,0.6);color:#ffe566;">● Yellow</button>
-        <button class="tee-btn" data-tee="white" onclick="selectTee(this,'white')" style="background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.25);color:rgba(245,240,232,0.7);">● White</button>
-        <button class="tee-btn" data-tee="blue" onclick="selectTee(this,'blue')" style="background:rgba(85,153,204,0.15);border:2px solid rgba(85,153,204,0.4);color:#88bbee;">● Blue</button>
-        <button class="tee-btn" data-tee="red" onclick="selectTee(this,'red')" style="background:rgba(224,85,85,0.15);border:2px solid rgba(224,85,85,0.4);color:#f08080;">● Red</button>
-        <button class="tee-btn" data-tee="black" onclick="selectTee(this,'black')" style="background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.12);color:rgba(245,240,232,0.4);">● Black</button>
-      </div>
-    </div>
-    <input type="file" id="scorecard-img-input" accept="image/*" capture="environment" style="display:none" onchange="handleScorecardImage(event)">
-    <button class="btn-primary" style="margin-bottom:0;" onclick="document.getElementById('scorecard-img-input').click()">📷 Choose / Take Photo</button>
-    <div id="scan-status" style="margin-top:10px;display:none;">
-      <div id="scan-preview-wrap" style="margin-bottom:10px;border-radius:10px;overflow:hidden;max-height:160px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);">
-        <img id="scan-preview" style="max-width:100%;max-height:160px;object-fit:contain;" />
-      </div>
-      <div id="scan-message" style="text-align:center;font-size:12px;padding:8px;border-radius:8px;"></div>
-    </div>
-  </div>
-
-  <!-- Course name + hole table -->
-  <div class="card">
-    <div class="card-title">⛳ Hole Setup — Par & Index</div>
-    <div style="margin-bottom:10px;">
-      <input id="course-name-input" type="text" placeholder="Course name (e.g. Shortland Waters)" value="Shortland Waters"
-        style="width:100%;padding:8px 11px;background:rgba(0,0,0,0.3);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;"
-        oninput="courseName=this.value;saveState()">
-    </div>
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-      <table class="course-table" id="course-table"></table>
-    </div>
-  </div>
-  <button class="btn-primary" onclick="showPage('score')">Start Scoring →</button>
 </div>
 
 <!-- ══ SCORE PAGE ══ -->
@@ -301,6 +370,7 @@
     <span class="hole-type-badge par4-badge" id="hole-type-badge">Par 4</span>
   </div>
   <div id="comp-banner-area"></div>
+  <div id="wolf-hole-area"></div>
   <div class="card-title" style="margin-bottom:9px;">🏌️ Scores</div>
   <div class="score-grid" id="score-grid"></div>
   <div style="margin-top:12px;display:flex;gap:8px;">
@@ -317,6 +387,7 @@
     <div style="font-size:10px;color:rgba(245,240,232,0.3);margin-top:4px;margin-bottom:10px;" id="sc-progress-label">0 / 18 holes played</div>
     <div class="scorecard-wrap"><table class="sc-table" id="scorecard-table"></table></div>
   </div>
+  <div id="three-putt-summary"></div>
 </div>
 
 <!-- ══ TEAMS PAGE ══ -->
@@ -355,7 +426,16 @@
   <div style="padding:14px;" id="hd-body"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
+// ══════════════════════════════════════════════
+// API — Cloudflare Worker proxy (keeps the API key server-side)
+// After deploying the worker, replace this URL with your worker URL.
+const WORKER_URL = 'https://golf-scorer-api.colbyg41.workers.dev';
+const SUPABASE_URL = 'https://sdaaavfbzlyrzcwtrgmo.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkYWFhdmZiemx5cnpjd3RyZ21vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NjA3OTYsImV4cCI6MjA5NzIzNjc5Nn0.-RmJLosGjaq95cyk7m2IOXETvYKt-Oxs5gTBxcNY0Ug';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ══════════════════════════════════════════════
 // COURSE DATA — from physical scorecard (June 2026)
 // ══════════════════════════════════════════════
@@ -401,7 +481,54 @@ function saveHistoryData(hist) {
   try { localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(hist)); } catch(e) {}
 }
 
-const DRIVE_FOLDER_ID = '1DgZMM4qhoPkvpEQdjojceZP1Rcn1Wdnn';
+// ══════════════════════════════════════════════
+// SUPABASE — cloud storage for saved rounds
+// ══════════════════════════════════════════════
+function entryToRow(entry) {
+  return {
+    id: entry.id,
+    label: entry.label,
+    date: entry.date,
+    holes_played: entry.holesPlayed,
+    handicaps: entry.handicaps,
+    pars: entry.pars,
+    indices: entry.indices,
+    scores: entry.scores,
+    comp_winners: entry.compWinners,
+    team_assignments: entry.teamAssignments,
+    active_games: entry.activeGames,
+    wolf_order: entry.wolfOrder,
+    wolf_holes: entry.wolfHoles,
+    course_name: entry.courseName,
+    course_rating: entry.courseRating,
+    slope_rating: entry.slopeRating,
+    selected_tee: entry.selectedTee,
+    three_putts: entry.threePutts,
+  };
+}
+
+function rowToEntry(row) {
+  return {
+    id: row.id,
+    label: row.label,
+    date: row.date,
+    holesPlayed: row.holes_played,
+    handicaps: row.handicaps,
+    pars: row.pars,
+    indices: row.indices,
+    scores: row.scores,
+    compWinners: row.comp_winners,
+    teamAssignments: row.team_assignments,
+    activeGames: row.active_games,
+    wolfOrder: row.wolf_order,
+    wolfHoles: row.wolf_holes,
+    courseName: row.course_name,
+    courseRating: row.course_rating,
+    slopeRating: row.slope_rating,
+    selectedTee: row.selected_tee,
+    threePutts: row.three_putts,
+  };
+}
 
 async function saveCurrentRound() {
   const holesPlayed = Array.from({length:18},(_,h)=>PLAYERS.some(p=>scores[p.id][h]>0)).filter(Boolean).length;
@@ -419,137 +546,76 @@ async function saveCurrentRound() {
     indices: [...indices],
     scores: JSON.parse(JSON.stringify(scores)),
     compWinners: JSON.parse(JSON.stringify(compWinners)),
+    teamAssignments: JSON.parse(JSON.stringify(teamAssignments)),
+    activeGames: JSON.parse(JSON.stringify(activeGames)),
+    wolfOrder: [...wolfOrder],
+    wolfHoles: JSON.parse(JSON.stringify(wolfHoles)),
+    courseName,
+    courseRating,
+    slopeRating,
+    selectedTee,
+    threePutts: JSON.parse(JSON.stringify(threePutts)),
   };
 
-  // Save locally first
   const hist = loadHistory();
   hist.unshift(entry);
   saveHistoryData(hist);
   renderHistoryPage();
 
-  // Then save to Google Drive
-  setSaveStatus('saving');
+  setCloudStatus('saving');
   try {
-    await saveToDrive(entry);
-    setSaveStatus('saved');
+    const { error } = await db.from('rounds').upsert(entryToRow(entry));
+    if (error) throw error;
+    setCloudStatus('saved');
   } catch(e) {
-    setSaveStatus('error');
-    console.error('Drive save failed:', e);
+    setCloudStatus('error');
+    console.error('Supabase save failed:', e);
   }
 }
 
-function setSaveStatus(state) {
-  const el = document.getElementById('drive-status');
+function setCloudStatus(state) {
+  const el = document.getElementById('cloud-status');
   if (!el) return;
   if (state === 'saving') {
-    el.innerHTML = '<span style="color:var(--gold)">☁️ Saving to Google Drive…</span>';
+    el.innerHTML = '<span style="color:var(--gold)">☁️ Saving to cloud…</span>';
   } else if (state === 'saved') {
-    el.innerHTML = '<span style="color:var(--green-bright)">✅ Saved to Google Drive</span>';
-    setTimeout(()=>{ el.innerHTML=''; renderHistoryPage(); }, 3000);
+    el.innerHTML = '<span style="color:var(--green-bright)">✅ Saved to cloud</span>';
+    setTimeout(() => { el.innerHTML = ''; renderHistoryPage(); }, 3000);
   } else if (state === 'error') {
-    el.innerHTML = '<span style="color:var(--red)">⚠️ Drive save failed — saved locally only</span>';
-    setTimeout(()=>{ el.innerHTML=''; }, 4000);
+    el.innerHTML = '<span style="color:var(--red)">⚠️ Cloud save failed — saved locally</span>';
+    setTimeout(() => { el.innerHTML = ''; }, 4000);
   }
 }
 
-async function saveToDrive(entry) {
-  const safeName = entry.label.replace(/[^a-zA-Z0-9 _-]/g,'').trim() || 'Round';
-  const fileName = `${safeName} — ${entry.date.slice(0,10)}.json`;
-  const fileContent = JSON.stringify(entry, null, 2);
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      messages: [{
-        role: 'user',
-        content: `Use the Google Drive MCP to create a file in folder ID "${DRIVE_FOLDER_ID}" with:
-- title: "${fileName}"
-- contentMimeType: "application/json"
-- disableConversionToGoogleType: true
-- textContent: ${JSON.stringify(fileContent)}
-
-Respond only with JSON: {"success": true, "fileId": "..."} or {"success": false, "error": "..."}`
-      }],
-      mcp_servers: [{
-        type: 'url',
-        url: 'https://drivemcp.googleapis.com/mcp/v1',
-        name: 'google-drive'
-      }]
-    })
-  });
-
-  const data = await response.json();
-  const text = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-  let result;
-  try {
-    const clean = text.replace(/```json|```/g,'').trim();
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    result = jsonMatch ? JSON.parse(jsonMatch[0]) : { success: false };
-  } catch(e) { result = { success: false, error: e.message }; }
-
-  if (!result.success) throw new Error(result.error || 'Unknown error');
-  return result;
-}
-
-async function syncFromDrive() {
+async function syncFromCloud() {
   const btn = document.getElementById('sync-btn');
   if (btn) { btn.textContent = '⏳ Syncing…'; btn.disabled = true; }
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
-        messages: [{
-          role: 'user',
-          content: `Search Google Drive for all .json files in folder ID "${DRIVE_FOLDER_ID}". For each file found, download its content. Return ONLY a JSON array of the file contents (each is a golf round object). If no files found, return []. No explanation, just the JSON array.`
-        }],
-        mcp_servers: [{
-          type: 'url',
-          url: 'https://drivemcp.googleapis.com/mcp/v1',
-          name: 'google-drive'
-        }]
-      })
-    });
-    const data = await response.json();
-    const text = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    const clean = text.replace(/```json|```/g,'').trim();
-    const arrMatch = clean.match(/\[[\s\S]*\]/);
-    if (!arrMatch) throw new Error('No array found');
-    const driveRounds = JSON.parse(arrMatch[0]);
-    if (!Array.isArray(driveRounds)) throw new Error('Not an array');
-
-    // Merge with local: Drive is source of truth, add any missing locally
+    const { data, error } = await db.from('rounds').select('*').order('id', { ascending: false });
+    if (error) throw error;
     const local = loadHistory();
-    const localIds = new Set(local.map(r=>r.id));
+    const localIds = new Set(local.map(r => r.id));
     let added = 0;
-    for (const r of driveRounds) {
-      if (r && r.id && !localIds.has(r.id)) {
-        local.push(r);
-        added++;
-      }
+    for (const row of data) {
+      const entry = rowToEntry(row);
+      if (!localIds.has(entry.id)) { local.push(entry); added++; }
     }
-    local.sort((a,b)=>b.id-a.id);
+    local.sort((a, b) => b.id - a.id);
     saveHistoryData(local);
     renderHistoryPage();
-    if (btn) { btn.textContent = `☁️ Synced (${added} new)`; btn.disabled = false; }
-    setTimeout(()=>{ if(btn){btn.textContent='☁️ Sync from Drive';} }, 3000);
+    if (btn) { btn.textContent = `✅ Synced (${added} new)`; btn.disabled = false; }
+    setTimeout(() => { if (btn) btn.textContent = '☁️ Sync from cloud'; }, 3000);
   } catch(e) {
     if (btn) { btn.textContent = '⚠️ Sync failed'; btn.disabled = false; }
     console.error('Sync failed:', e);
-    setTimeout(()=>{ if(btn){btn.textContent='☁️ Sync from Drive';} }, 3000);
+    setTimeout(() => { if (btn) btn.textContent = '☁️ Sync from cloud'; }, 3000);
   }
 }
 
 // ══════════════════════════════════════════════
-// DRIVE AUTO-SAVE — fires when a hole is complete
+// LOCAL AUTO-SAVE — saves to localStorage after each complete hole
 // ══════════════════════════════════════════════
 let _autoSaveTimer = null;
-let _autoSaveFileId = null; // Track the in-progress file ID for overwriting
 
 function holeIsComplete(h) {
   return PLAYERS.every(p => scores[p.id][h] > 0);
@@ -557,89 +623,23 @@ function holeIsComplete(h) {
 
 function triggerAutoSaveIfHoleComplete(hole) {
   if (!holeIsComplete(hole)) return;
-  // Debounce — wait 1.5s after last tap before saving
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(() => autoSaveToDrive(hole), 1500);
-}
-
-async function autoSaveToDrive(hole) {
-  const holesPlayed = Array.from({length:18},(_,h)=>PLAYERS.some(p=>scores[p.id][h]>0)).filter(Boolean).length;
-  if (holesPlayed === 0) return;
-
-  setHeaderSaveStatus('saving');
-
-  const entry = {
-    id: 'autosave',
-    label: `In Progress — ${formatDateShort(new Date())}`,
-    date: new Date().toISOString(),
-    holesPlayed,
-    isAutoSave: true,
-    lastHole: hole + 1,
-    handicaps: JSON.parse(JSON.stringify(handicaps)),
-    pars: [...pars],
-    indices: [...indices],
-    scores: JSON.parse(JSON.stringify(scores)),
-    compWinners: JSON.parse(JSON.stringify(compWinners)),
-  };
-
-  try {
-    const fileContent = JSON.stringify(entry, null, 2);
-    const fileName = 'In Progress — Auto Save.json';
-
-    // If we already know the file ID, overwrite it; otherwise create new
-    const prompt = _autoSaveFileId
-      ? `Use the Google Drive MCP to update file ID "${_autoSaveFileId}" with new textContent. Upload the file with title "${fileName}", contentMimeType "application/json", disableConversionToGoogleType true, textContent: ${JSON.stringify(fileContent)}. Actually, just create a new file in folder "${DRIVE_FOLDER_ID}" since update isn't supported — but first delete file ID "${_autoSaveFileId}" if possible. Respond only with JSON: {"success": true, "fileId": "..."} or {"success": false, "error": "..."}`
-      : `Use the Google Drive MCP to create a file in folder ID "${DRIVE_FOLDER_ID}" with title "${fileName}", contentMimeType "application/json", disableConversionToGoogleType true, textContent: ${JSON.stringify(fileContent)}. Respond only with JSON: {"success": true, "fileId": "..."} or {"success": false, "error": "..."}`;
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }],
-        mcp_servers: [{ type: 'url', url: 'https://drivemcp.googleapis.com/mcp/v1', name: 'google-drive' }]
-      })
-    });
-
-    const data = await response.json();
-    const text = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    const clean = text.replace(/```json|```/g,'').trim();
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : { success: false };
-
-    if (result.success && result.fileId) {
-      _autoSaveFileId = result.fileId;
-      setHeaderSaveStatus('saved', hole + 1);
-    } else {
-      setHeaderSaveStatus('error');
-    }
-  } catch(e) {
-    console.error('Auto-save failed:', e);
-    setHeaderSaveStatus('error');
-  }
+  _autoSaveTimer = setTimeout(() => {
+    saveState();
+    setHeaderSaveStatus('saved', hole + 1);
+  }, 1500);
 }
 
 function setHeaderSaveStatus(state, hole) {
   const el = document.getElementById('save-indicator');
   if (!el) return;
-  if (state === 'saving') {
-    el.innerHTML = '☁️ Saving…';
-    el.style.color = 'rgba(201,168,76,0.8)';
-  } else if (state === 'saved') {
-    el.innerHTML = `✅ Saved after H${hole}`;
+  if (state === 'saved') {
+    el.innerHTML = `✅ Saved H${hole}`;
     el.style.color = 'rgba(78,186,122,1)';
     setTimeout(() => {
       el.innerHTML = '💾 Auto-saving';
       el.style.color = 'rgba(78,186,122,0.5)';
     }, 3000);
-  } else if (state === 'error') {
-    el.innerHTML = '⚠️ Drive save failed';
-    el.style.color = 'rgba(224,85,85,0.9)';
-    setTimeout(() => {
-      el.innerHTML = '💾 Auto-saving';
-      el.style.color = 'rgba(78,186,122,0.5)';
-    }, 4000);
   }
 }
 
@@ -678,21 +678,18 @@ function renderHistoryPage() {
   const holesPlayed = Array.from({length:18},(_,h)=>PLAYERS.some(p=>scores[p.id][h]>0)).filter(Boolean).length;
 
   const saveBtn = holesPlayed > 0
-    ? `<button class="save-round-btn" onclick="saveCurrentRound()">💾 Save to Drive (${holesPlayed} holes)</button>`
+    ? `<button class="save-round-btn" onclick="saveCurrentRound()">☁️ Save to cloud (${holesPlayed} holes)</button>`
     : `<div style="text-align:center;font-size:11px;color:rgba(245,240,232,0.25);margin-bottom:8px;">Enter scores on the Score tab, then save here.</div>`;
 
-  const driveBar = `<div id="drive-status" style="text-align:center;font-size:11px;min-height:18px;margin-bottom:6px;"></div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button id="sync-btn" class="btn-secondary" style="flex:1;font-size:11px;" onclick="syncFromDrive()">☁️ Sync from Drive</button>
-      <a href="https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}" target="_blank" style="flex:1;" >
-        <button class="btn-secondary" style="width:100%;font-size:11px;">📂 Open Drive Folder</button>
-      </a>
+  const cloudBar = `<div id="cloud-status" style="text-align:center;font-size:11px;min-height:18px;margin-bottom:6px;"></div>
+    <div style="margin-bottom:12px;">
+      <button id="sync-btn" class="btn-secondary" style="width:100%;font-size:11px;" onclick="syncFromCloud()">☁️ Sync from cloud</button>
     </div>`;
 
-  document.getElementById('save-round-area').innerHTML = saveBtn + driveBar;
+  document.getElementById('save-round-area').innerHTML = saveBtn + cloudBar;
 
   if (!hist.length) {
-    document.getElementById('history-list').innerHTML = `<div class="empty-state" style="padding:40px 20px;">No saved rounds yet.<br>Tap "Save to Drive" after a round.</div>`;
+    document.getElementById('history-list').innerHTML = `<div class="empty-state" style="padding:40px 20px;">No saved rounds yet.<br>Tap "Save to cloud" after a round.</div>`;
     return;
   }
 
@@ -701,9 +698,12 @@ function renderHistoryPage() {
       const pts = r.scores[p.id].reduce((s,v,h) => s + (stablefordPointsFrom(v, r.pars[h], p.id, h, r.handicaps, r.indices) ?? 0), 0);
       return { p, pts };
     });
-    const totA = playerScores.filter(x=>x.p.team==='A').reduce((s,x)=>s+x.pts,0);
-    const totB = playerScores.filter(x=>x.p.team==='B').reduce((s,x)=>s+x.pts,0);
-    const winner = totA > totB ? 'Colby & Mitch 🏆' : totB > totA ? 'Dave & Scott 🏆' : 'All Square';
+    const ta = r.teamAssignments || Object.fromEntries(PLAYERS.map(p=>[p.id,p.team]));
+    const totA = playerScores.filter(x=>ta[x.p.id]==='A').reduce((s,x)=>s+x.pts,0);
+    const totB = playerScores.filter(x=>ta[x.p.id]==='B').reduce((s,x)=>s+x.pts,0);
+    const teamAName = PLAYERS.filter(p=>ta[p.id]==='A').map(p=>p.name).join(' & ') || 'Team A';
+    const teamBName = PLAYERS.filter(p=>ta[p.id]==='B').map(p=>p.name).join(' & ') || 'Team B';
+    const winner = totA > totB ? teamAName + ' 🏆' : totB > totA ? teamBName + ' 🏆' : 'All Square';
     return `<div class="history-round" onclick="openHistoryDetail(${r.id})">
       <div class="history-round-header">
         <div>
@@ -756,13 +756,16 @@ function openHistoryDetail(id) {
     <td class="sc-total" style="font-size:11px;">${r.scores[p.id].reduce((s,v,h)=>s+(stablefordPointsFrom(v,r.pars[h],p.id,h,r.handicaps,r.indices)??0),0)}</td>
   </tr>`).join('');
 
-  const totA = PLAYERS.filter(p=>p.team==='A').reduce((s,p)=>s+r.scores[p.id].reduce((ss,v,h)=>ss+(stablefordPointsFrom(v,r.pars[h],p.id,h,r.handicaps,r.indices)??0),0),0);
-  const totB = PLAYERS.filter(p=>p.team==='B').reduce((s,p)=>s+r.scores[p.id].reduce((ss,v,h)=>ss+(stablefordPointsFrom(v,r.pars[h],p.id,h,r.handicaps,r.indices)??0),0),0);
+  const rta = r.teamAssignments || Object.fromEntries(PLAYERS.map(p=>[p.id,p.team]));
+  const totA = PLAYERS.filter(p=>rta[p.id]==='A').reduce((s,p)=>s+r.scores[p.id].reduce((ss,v,h)=>ss+(stablefordPointsFrom(v,r.pars[h],p.id,h,r.handicaps,r.indices)??0),0),0);
+  const totB = PLAYERS.filter(p=>rta[p.id]==='B').reduce((s,p)=>s+r.scores[p.id].reduce((ss,v,h)=>ss+(stablefordPointsFrom(v,r.pars[h],p.id,h,r.handicaps,r.indices)??0),0),0);
+  const hdTeamAName = PLAYERS.filter(p=>rta[p.id]==='A').map(p=>p.name).join(' & ') || 'Team A';
+  const hdTeamBName = PLAYERS.filter(p=>rta[p.id]==='B').map(p=>p.name).join(' & ') || 'Team B';
   const diff = totA - totB;
   const resultBanner = diff > 0
-    ? `<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-a);">Colby & Mitch</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`
+    ? `<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-a);">${hdTeamAName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`
     : diff < 0
-    ? `<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-b);">Dave & Scott</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`
+    ? `<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-b);">${hdTeamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`
     : `<div class="result-banner" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);"><div class="result-label">Result</div><div class="result-text" style="color:var(--gold);">All Square</div></div>`;
 
   const hcpLine = PLAYERS.map(p=>`${p.name} HCP ${r.handicaps[p.id]}`).join(' · ');
@@ -800,7 +803,8 @@ const LS_KEY = 'swgc_round';
 function saveState() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
-      handicaps, pars, indices, scores, compWinners, currentHole, courseName, selectedTee
+      handicaps, pars, indices, scores, compWinners, currentHole, courseName, selectedTee,
+      courseRating, slopeRating, teamAssignments, activeGames, wolfOrder, wolfHoles, gameActive, threePutts
     }));
     const el = document.getElementById('save-indicator');
     if (el) { el.style.color='rgba(78,186,122,1)'; setTimeout(()=>{ el.style.color='rgba(78,186,122,0.5)'; }, 600); }
@@ -820,23 +824,103 @@ function loadState() {
     if (typeof s.currentHole === 'number') currentHole = s.currentHole;
     if (s.courseName)   courseName   = s.courseName;
     if (s.selectedTee)  selectedTee  = s.selectedTee;
+    if (typeof s.courseRating === 'number') courseRating    = s.courseRating;
+    if (typeof s.slopeRating  === 'number') slopeRating     = s.slopeRating;
+    if (s.teamAssignments)                  teamAssignments = s.teamAssignments;
+    if (s.activeGames)  activeGames = { ...activeGames, ...s.activeGames };
+    if (s.wolfOrder)    wolfOrder   = s.wolfOrder;
+    if (s.wolfHoles)    wolfHoles   = s.wolfHoles;
+    if (typeof s.gameActive === 'boolean') gameActive = s.gameActive;
+    if (s.threePutts)   threePutts  = s.threePutts;
     return true;
   } catch(e) { return false; }
 }
 
-function resetState() {
-  if (!confirm('Reset all scores and start a new round?')) return;
+function doReset() {
   localStorage.removeItem(LS_KEY);
   handicaps    = { colby: 0, mitch: 0, dave: 0, scott: 0 };
   pars         = HOLE_DATA.map(h => h.par);
   indices      = HOLE_DATA.map(h => h.idx);
   PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
+  PLAYERS.forEach(p => { threePutts[p.id] = Array(18).fill(false); });
   for (let i = 0; i < 18; i++) compWinners[i] = { ctp: '', ld: '' };
-  currentHole  = 0;
-  courseName   = 'Shortland Waters';
-  selectedTee  = 'yellow';
-  renderSetup();
+  currentHole     = 0;
+  courseName      = 'Shortland Waters';
+  selectedTee     = 'yellow';
+  courseRating    = 71.0;
+  slopeRating     = 113;
+  teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
+  activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true, wolf: false, gross: false, net: false };
+  wolfOrder       = PLAYERS.map(p => p.id);
+  wolfHoles       = Array(18).fill(null).map(() => ({ mode: null, partnerId: null }));
+  gameActive      = false;
+  savedCourses    = null;
   showPage('setup');
+}
+
+function resetState() {
+  if (!confirm('Reset all scores and start a new round?')) return;
+  doReset();
+}
+
+function startGame() {
+  gameActive = true;
+  saveState();
+  showPage('score');
+}
+
+function endGame() {
+  if (!confirm('End this game? All scores will be lost.')) return;
+  doReset();
+}
+
+function renderActiveGame() {
+  const el = document.getElementById('active-game-summary');
+  if (!el) return;
+  const coursePar = pars.reduce((a, b) => a + b, 0);
+  const holesPlayed = Array.from({length:18}, (_, h) => PLAYERS.some(p => scores[p.id][h] > 0)).filter(Boolean).length;
+  const activeList = [
+    activeGames.teamMultiplier ? '✖️ Multiplier' : null,
+    activeGames.skins   ? '🃏 Skins'      : null,
+    activeGames.nassau  ? '🏆 Nassau'     : null,
+    activeGames.wolf    ? '🐺 Wolf'       : null,
+    activeGames.gross   ? '📊 Gross'      : null,
+    activeGames.net     ? '🏅 Net'        : null,
+    activeGames.ctpLd   ? '🎯 CTP & LD'  : null,
+  ].filter(Boolean);
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-title">🏌️ Round in Progress</div>
+      <div style="display:flex;flex-direction:column;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(245,240,232,0.06);">
+          <span style="font-size:11px;color:rgba(245,240,232,0.4);">Course</span>
+          <span style="font-size:13px;font-weight:600;">${courseName || '—'}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(245,240,232,0.06);">
+          <span style="font-size:11px;color:rgba(245,240,232,0.4);">Par</span>
+          <span style="font-size:13px;font-weight:600;">${coursePar}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(245,240,232,0.06);">
+          <span style="font-size:11px;color:rgba(245,240,232,0.4);">Holes Played</span>
+          <span style="font-size:13px;font-weight:600;color:var(--green-bright);">${holesPlayed} / 18</span>
+        </div>
+        ${activeList.length ? `<div style="padding:9px 0;border-bottom:1px solid rgba(245,240,232,0.06);">
+          <div style="font-size:11px;color:rgba(245,240,232,0.4);margin-bottom:8px;">Games</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${activeList.map(g => `<span style="font-size:11px;padding:3px 9px;background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.2);border-radius:20px;color:var(--green-bright);">${g}</span>`).join('')}
+          </div>
+        </div>` : ''}
+        <div style="padding:9px 0;">
+          <div style="font-size:11px;color:rgba(245,240,232,0.4);margin-bottom:8px;">Players</div>
+          ${PLAYERS.map(p => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">
+            <div style="width:8px;height:8px;border-radius:50%;background:${p.color};"></div>
+            <span style="font-size:13px;flex:1;">${p.name}</span>
+            <span style="font-size:11px;color:rgba(245,240,232,0.4);">HI ${handicaps[p.id]}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <button class="btn-primary" style="width:100%;margin-top:4px;" onclick="showPage('score')">Resume Scoring →</button>`;
 }
 
 let handicaps    = { colby: 18, mitch: 14, dave: 16, scott: 0 };
@@ -847,8 +931,18 @@ let compWinners  = {};
 let currentHole  = 0;
 let courseName   = 'Shortland Waters';
 let selectedTee  = 'yellow';
+let courseRating    = 71.0;
+let slopeRating     = 113;
+let teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
+let activeGames     = { teamMultiplier: true, skins: false, nassau: false, ctpLd: true, wolf: false, gross: false, net: false };
+let wolfOrder       = PLAYERS.map(p => p.id);
+let wolfHoles       = Array(18).fill(null).map(() => ({ mode: null, partnerId: null }));
+let gameActive      = false;
+let setupStep       = 1;
+let threePutts      = {};
 
 PLAYERS.forEach(p => { scores[p.id] = Array(18).fill(0); });
+PLAYERS.forEach(p => { threePutts[p.id] = Array(18).fill(false); });
 for (let i = 0; i < 18; i++) compWinners[i] = { ctp: '', ld: '' };
 
 // ── Stroke allocation using hole stroke index ──
@@ -896,9 +990,10 @@ function totalStableford(pid) {
 }
 
 function teamMultiplierHole(hole) {
-  // Sum both players' Stableford points per team, then multiply the two team totals together
-  const sumA = ['colby','mitch'].reduce((s,p) => s + (stablefordPoints(scores[p][hole], pars[hole], p, hole) ?? 0), 0);
-  const sumB = ['dave','scott'].reduce((s,p) => s + (stablefordPoints(scores[p][hole], pars[hole], p, hole) ?? 0), 0);
+  const sumA = PLAYERS.filter(p => teamAssignments[p.id] === 'A')
+    .reduce((s,p) => s + (stablefordPoints(scores[p.id][hole], pars[hole], p.id, hole) ?? 0), 0);
+  const sumB = PLAYERS.filter(p => teamAssignments[p.id] === 'B')
+    .reduce((s,p) => s + (stablefordPoints(scores[p.id][hole], pars[hole], p.id, hole) ?? 0), 0);
   return { sumA, sumB, product: sumA * sumB };
 }
 
@@ -912,59 +1007,561 @@ function teamTotals() {
 }
 
 // ══════════════════════════════════════════════
-// SETUP PAGE
+// SETUP PAGE — WIZARD
 // ══════════════════════════════════════════════
+function showSetupStep(n) {
+  setupStep = n;
+  [1,2,3].forEach(i => {
+    const el = document.getElementById('setup-step-' + i);
+    if (el) el.style.display = i === n ? '' : 'none';
+  });
+  updateStepper();
+  if (n === 2) renderGameFormat();
+  if (n === 3) {
+    document.getElementById('player-setup-list').innerHTML = PLAYERS.map(p => `
+      <div class="player-row">
+        <div class="player-dot" style="background:${p.color}"></div>
+        <div class="player-name-label">${p.name}</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-left:auto;">
+          <span style="font-size:10px;color:rgba(245,240,232,0.4);">HI</span>
+          <input class="hcp-input" type="number" step="0.1" min="0" max="54" value="${handicaps[p.id]}"
+            oninput="handicaps['${p.id}']=parseFloat(this.value)||0;saveState();renderDailyHcps()" inputmode="decimal">
+        </div>
+      </div>`).join('');
+    const crEl = document.getElementById('course-rating-input');
+    const srEl = document.getElementById('slope-rating-input');
+    if (crEl) crEl.value = courseRating;
+    if (srEl) srEl.value = slopeRating;
+    renderDailyHcps();
+    renderTeamSetup();
+    const teamsCard = document.getElementById('teams-setup-card');
+    if (teamsCard) teamsCard.style.display = (activeGames.teamMultiplier || activeGames.nassau) ? '' : 'none';
+  }
+}
+
+function goToSetupStep(n) {
+  if (n >= setupStep) return;
+  showSetupStep(n);
+}
+
+function updateStepper() {
+  [1,2,3].forEach(i => {
+    const dot   = document.getElementById('step-dot-' + i);
+    const label = document.getElementById('step-label-' + i);
+    if (!dot) return;
+    const isDone   = i < setupStep;
+    const isActive = i === setupStep;
+    dot.style.background = (isDone || isActive) ? 'var(--green-bright)' : 'rgba(245,240,232,0.1)';
+    dot.style.color      = (isDone || isActive) ? '#0a1a0d'             : 'rgba(245,240,232,0.3)';
+    dot.style.cursor     = isDone ? 'pointer' : 'default';
+    dot.textContent      = isDone ? '✓' : String(i);
+    if (label) label.style.color = (isDone || isActive) ? 'var(--green-bright)' : 'rgba(245,240,232,0.3)';
+  });
+  [1,2].forEach(i => {
+    const line = document.getElementById('step-line-' + i);
+    if (line) line.style.background = i < setupStep ? 'var(--green-bright)' : 'rgba(245,240,232,0.12)';
+  });
+}
+
+function showCourseConfirm() {
+  const section = document.getElementById('course-confirm-section');
+  const tableEl = document.getElementById('course-confirm-table');
+  if (!section || !tableEl) return;
+  const parInp = (val, idx) =>
+    `<input type="number" inputmode="numeric" min="3" max="5" value="${val}"
+      style="width:36px;text-align:center;background:rgba(0,0,0,0.28);border:1px solid rgba(245,240,232,0.1);border-radius:5px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:3px 2px;outline:none;-moz-appearance:textfield;"
+      oninput="pars[${idx}]=parseInt(this.value)||pars[${idx}];saveState();updateConfirmTotals()">`;
+  const siInp = (val, idx) =>
+    `<input type="number" inputmode="numeric" min="1" max="18" value="${val}"
+      style="width:36px;text-align:center;background:rgba(0,0,0,0.28);border:1px solid rgba(201,168,76,0.18);border-radius:5px;color:rgba(201,168,76,0.85);font-family:'DM Sans',sans-serif;font-size:12px;padding:3px 2px;outline:none;-moz-appearance:textfield;"
+      oninput="indices[${idx}]=parseInt(this.value)||indices[${idx}];saveState()">`;
+  const rows = Array.from({length: 9}, (_, i) => `
+    <tr>
+      <td style="padding:4px 2px;text-align:center;font-size:11px;color:rgba(245,240,232,0.45);">${i+1}</td>
+      <td style="padding:4px 3px;text-align:center;">${parInp(pars[i], i)}</td>
+      <td style="padding:4px 3px;text-align:center;">${siInp(indices[i], i)}</td>
+      <td style="width:8px;border-left:1px solid rgba(245,240,232,0.06);"></td>
+      <td style="padding:4px 2px;text-align:center;font-size:11px;color:rgba(245,240,232,0.45);">${i+10}</td>
+      <td style="padding:4px 3px;text-align:center;">${parInp(pars[i+9], i+9)}</td>
+      <td style="padding:4px 3px;text-align:center;">${siInp(indices[i+9], i+9)}</td>
+    </tr>`).join('');
+  tableEl.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+    <thead>
+      <tr style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);">
+        <th style="padding:4px 2px;text-align:center;font-weight:500;">H</th>
+        <th style="padding:4px 3px;text-align:center;font-weight:500;">Par</th>
+        <th style="padding:4px 3px;text-align:center;font-weight:500;">SI</th>
+        <th></th>
+        <th style="padding:4px 2px;text-align:center;font-weight:500;">H</th>
+        <th style="padding:4px 3px;text-align:center;font-weight:500;">Par</th>
+        <th style="padding:4px 3px;text-align:center;font-weight:500;">SI</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr style="font-size:10px;border-top:1px solid rgba(245,240,232,0.1);">
+        <td colspan="2" style="padding:5px 3px;text-align:right;color:rgba(245,240,232,0.35);">Front</td>
+        <td id="confirm-front-total" style="padding:5px 3px;text-align:center;font-weight:700;">${pars.slice(0,9).reduce((a,b)=>a+b,0)}</td>
+        <td></td>
+        <td colspan="2" style="padding:5px 3px;text-align:right;color:rgba(245,240,232,0.35);">Back</td>
+        <td id="confirm-back-total" style="padding:5px 3px;text-align:center;font-weight:700;">${pars.slice(9).reduce((a,b)=>a+b,0)}</td>
+      </tr>
+    </tfoot>
+  </table>`;
+  section.style.display = '';
+}
+
+function updateConfirmTotals() {
+  const f = document.getElementById('confirm-front-total');
+  const b = document.getElementById('confirm-back-total');
+  if (f) f.textContent = pars.slice(0,9).reduce((a,b)=>a+b,0);
+  if (b) b.textContent = pars.slice(9).reduce((a,b)=>a+b,0);
+}
+
 function renderSetup() {
-  document.getElementById('player-setup-list').innerHTML = PLAYERS.map(p => `
-    <div class="player-row">
+  const cnEl = document.getElementById('course-name-input');
+  if (cnEl) cnEl.value = courseName;
+  updateStepper();
+}
+
+function renderGameFormat() {
+  const el = document.getElementById('game-format-list');
+  if (!el) return;
+  function row(emoji, title, desc, key, locked) {
+    const on = locked || activeGames[key];
+    return `<div ${locked ? '' : `onclick="toggleGame('${key}')"`}
+      style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;cursor:${locked?'default':'pointer'};user-select:none;-webkit-tap-highlight-color:transparent;transition:background 0.15s,border 0.15s;
+        ${on ? 'background:rgba(78,186,122,0.07);border:1px solid rgba(78,186,122,0.18);' : 'background:rgba(245,240,232,0.02);border:1px solid rgba(245,240,232,0.07);'}">
+      <span style="font-size:15px;transition:opacity 0.15s;${on?'':'opacity:0.35;'}">${emoji}</span>
+      <div style="transition:opacity 0.15s;${on?'':'opacity:0.4;'}">
+        <div style="font-size:13px;font-weight:600;">${title}</div>
+        <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:1px;">${desc}</div>
+      </div>
+      <span style="margin-left:auto;font-size:11px;font-weight:700;transition:color 0.15s;${on?'color:var(--green-bright);':'color:rgba(245,240,232,0.18);'}">${locked ? '●' : (on ? 'ON' : 'OFF')}</span>
+    </div>`;
+  }
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:7px;">
+    ${row('🏌️','Individual Stableford','All players score Stableford points per hole',null,true)}
+    ${row('✖️','Team Multiplier','Team totals × each other per hole','teamMultiplier')}
+    ${row('🃏','Skins','Hole-by-hole winner takes the skin; ties carry over','skins')}
+    ${row('🏆','Nassau','Team A vs B — front 9, back 9 and overall','nassau')}
+    ${row('🐺','Wolf','Rotating wolf — blind, alone, or pick a partner each hole','wolf')}
+    ${row('📊','Gross','Total shots — traditional stroke play ranking','gross')}
+    ${row('🏅','Net','Gross minus playing handicap','net')}
+    ${row('🎯','CTP & Long Drive','Closest to pin (par 3) · Long drive (par 5)','ctpLd')}
+  </div>`;
+  renderWolfOrder();
+}
+
+function toggleGame(key) {
+  activeGames[key] = !activeGames[key];
+  saveState();
+  renderGameFormat();
+}
+
+// ══════════════════════════════════════════════
+// WOLF
+// ══════════════════════════════════════════════
+function renderWolfOrder() {
+  const el = document.getElementById('wolf-order-section');
+  if (!el) return;
+  if (!activeGames.wolf) { el.innerHTML = ''; return; }
+  const btnBase = 'width:26px;height:26px;border-radius:6px;background:rgba(245,240,232,0.06);border:1px solid rgba(245,240,232,0.1);color:var(--cream);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;font-family:\'DM Sans\',sans-serif;';
+  el.innerHTML = `
+    <div style="margin-top:14px;padding-top:13px;border-top:1px solid rgba(245,240,232,0.08);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);">Wolf Rotation</div>
+        <button onclick="shuffleWolfOrder()"
+          style="padding:4px 11px;font-size:10px;font-weight:600;border-radius:12px;background:rgba(245,240,232,0.06);border:1px solid rgba(245,240,232,0.15);color:rgba(245,240,232,0.55);cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:0.5px;">
+          Shuffle
+        </button>
+      </div>
+      ${wolfOrder.map((pid, i) => {
+        const p = PLAYERS.find(pl => pl.id === pid);
+        if (!p) return '';
+        const disUp = i === 0 ? 'opacity:0.2;pointer-events:none;' : '';
+        const disDown = i === wolfOrder.length - 1 ? 'opacity:0.2;pointer-events:none;' : '';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(245,240,232,0.04);">
+          <span style="font-size:10px;color:rgba(245,240,232,0.25);width:14px;text-align:center;">${i+1}</span>
+          <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
+          <span style="flex:1;font-size:13px;font-weight:500;">${p.name}</span>
+          <div style="display:flex;gap:4px;">
+            <button onclick="moveWolfOrder(${i},-1)" style="${btnBase}${disUp}">↑</button>
+            <button onclick="moveWolfOrder(${i},1)"  style="${btnBase}${disDown}">↓</button>
+          </div>
+        </div>`;
+      }).join('')}
+      <div style="font-size:10px;color:rgba(245,240,232,0.25);margin-top:8px;">Holes 17 & 18: flip a tee to decide wolf</div>
+    </div>`;
+}
+
+function shuffleWolfOrder() {
+  for (let i = wolfOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [wolfOrder[i], wolfOrder[j]] = [wolfOrder[j], wolfOrder[i]];
+  }
+  saveState();
+  renderWolfOrder();
+}
+
+function moveWolfOrder(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= wolfOrder.length) return;
+  [wolfOrder[i], wolfOrder[j]] = [wolfOrder[j], wolfOrder[i]];
+  saveState();
+  renderWolfOrder();
+}
+
+function getWolfId(h) {
+  return wolfOrder.length ? wolfOrder[h % wolfOrder.length] : null;
+}
+
+function setWolfMode(h, mode) {
+  wolfHoles[h].mode = wolfHoles[h].mode === mode ? null : mode;
+  if (wolfHoles[h].mode !== 'partner') wolfHoles[h].partnerId = null;
+  saveState();
+  renderWolfHoleSection(h);
+}
+
+function setWolfPartner(h, pid) {
+  wolfHoles[h].partnerId = wolfHoles[h].partnerId === pid ? null : pid;
+  saveState();
+  renderWolfHoleSection(h);
+}
+
+function renderWolfHoleSection(h) {
+  const el = document.getElementById('wolf-hole-area');
+  if (!el || !activeGames.wolf) { if (el) el.innerHTML = ''; return; }
+  const wolfId = getWolfId(h);
+  const wolf = PLAYERS.find(p => p.id === wolfId);
+  if (!wolf) return;
+  const wh = wolfHoles[h];
+  const mode = wh.mode;
+
+  // Auto-calculate result from current Stableford scores
+  let resultHtml = '';
+  if (mode && PLAYERS.some(p => scores[p.id][h] > 0)) {
+    const wolfPts   = stablefordPoints(scores[wolfId][h], pars[h], wolfId, h) ?? 0;
+    const others    = PLAYERS.filter(p => p.id !== wolfId);
+    if (mode === 'blind' || mode === 'alone') {
+      const maxOther = Math.max(...others.map(p => stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0));
+      const winPts   = mode === 'blind' ? 8 : 4;
+      if (wolfPts > maxOther)
+        resultHtml = `<div style="margin-top:9px;font-size:11px;font-weight:600;color:var(--green-bright);">✅ ${wolf.name} wins · +${winPts} pts</div>`;
+      else if (wolfPts < maxOther)
+        resultHtml = `<div style="margin-top:9px;font-size:11px;color:rgba(245,240,232,0.5);">Others win · +2 pts each</div>`;
+      else
+        resultHtml = `<div style="margin-top:9px;font-size:11px;color:var(--gold);">Draw · 0 pts</div>`;
+    } else if (mode === 'partner' && wh.partnerId) {
+      const partnerPts = stablefordPoints(scores[wh.partnerId][h], pars[h], wh.partnerId, h) ?? 0;
+      const otherTwo   = others.filter(p => p.id !== wh.partnerId);
+      const wolfTeam   = Math.max(wolfPts, partnerPts);
+      const otherTeam  = Math.max(...otherTwo.map(p => stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0));
+      const partner    = PLAYERS.find(p => p.id === wh.partnerId);
+      if (wolfTeam > otherTeam)
+        resultHtml = `<div style="margin-top:9px;font-size:11px;font-weight:600;color:var(--green-bright);">✅ ${wolf.name} & ${partner.name} win · +2 each</div>`;
+      else if (wolfTeam < otherTeam)
+        resultHtml = `<div style="margin-top:9px;font-size:11px;color:rgba(245,240,232,0.5);">Others win · +3 pts each</div>`;
+      else
+        resultHtml = `<div style="margin-top:9px;font-size:11px;color:var(--gold);">Draw · 0 pts</div>`;
+    }
+  }
+
+  const on  = (active) => active
+    ? 'background:rgba(78,186,122,0.18);border-color:var(--green-bright);color:var(--green-bright);'
+    : 'background:rgba(245,240,232,0.04);border-color:rgba(245,240,232,0.12);color:rgba(245,240,232,0.45);';
+  const btn = `padding:6px 12px;border-radius:20px;border:1px solid;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;`;
+
+  el.innerHTML = `<div style="background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:11px;padding:11px 13px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;">
+      <span style="font-size:14px;">🐺</span>
+      <div style="width:8px;height:8px;border-radius:50%;background:${wolf.color};"></div>
+      <span style="font-size:13px;font-weight:700;">${wolf.name}</span>
+      <span style="font-size:11px;color:rgba(245,240,232,0.35);">is Wolf</span>
+      ${h >= 16 ? '<span style="font-size:9px;background:rgba(201,168,76,0.15);color:var(--gold);padding:2px 7px;border-radius:8px;margin-left:auto;">Flip!</span>' : ''}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button onclick="setWolfMode(${h},'blind')"   style="${btn}${on(mode==='blind')}">🎯 Blind (8)</button>
+      <button onclick="setWolfMode(${h},'alone')"   style="${btn}${on(mode==='alone')}">🚶 Alone (4)</button>
+      <button onclick="setWolfMode(${h},'partner')" style="${btn}${on(mode==='partner')}">🤝 Partner (2)</button>
+    </div>
+    ${mode === 'partner' ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+      ${PLAYERS.filter(p => p.id !== wolfId).map(p =>
+        `<button onclick="setWolfPartner(${h},'${p.id}')" style="${btn}${on(wh.partnerId===p.id)}">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${p.color};margin-right:4px;vertical-align:middle;"></span>${p.name}
+        </button>`).join('')}
+    </div>` : ''}
+    ${resultHtml}
+  </div>`;
+}
+
+function calcWolf() {
+  return Array.from({length: 18}, (_, h) => {
+    const wolfId = getWolfId(h);
+    const wh     = wolfHoles[h];
+    const pm     = {};
+    PLAYERS.forEach(p => pm[p.id] = 0);
+    if (!wh || !wh.mode || !PLAYERS.some(p => scores[p.id][h] > 0))
+      return { hole: h, wolfId, mode: wh?.mode || null, pm };
+    const wolfPts = stablefordPoints(scores[wolfId][h], pars[h], wolfId, h) ?? 0;
+    const others  = PLAYERS.filter(p => p.id !== wolfId);
+    if (wh.mode === 'blind' || wh.mode === 'alone') {
+      const maxOther = Math.max(...others.map(p => stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0));
+      const winPts   = wh.mode === 'blind' ? 8 : 4;
+      if (wolfPts > maxOther)      pm[wolfId] = winPts;
+      else if (wolfPts < maxOther) others.forEach(p => pm[p.id] = 2);
+    } else if (wh.mode === 'partner' && wh.partnerId) {
+      const pPts      = stablefordPoints(scores[wh.partnerId][h], pars[h], wh.partnerId, h) ?? 0;
+      const otherTwo  = others.filter(p => p.id !== wh.partnerId);
+      const wolfTeam  = Math.max(wolfPts, pPts);
+      const otherTeam = Math.max(...otherTwo.map(p => stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0));
+      if (wolfTeam > otherTeam)      { pm[wolfId] = 2; pm[wh.partnerId] = 2; }
+      else if (wolfTeam < otherTeam) otherTwo.forEach(p => pm[p.id] = 3);
+    }
+    return { hole: h, wolfId, mode: wh.mode, partnerId: wh.partnerId, pm };
+  });
+}
+
+function renderWolfSection() {
+  const results = calcWolf();
+  const totals  = {};
+  PLAYERS.forEach(p => totals[p.id] = 0);
+  results.forEach(r => PLAYERS.forEach(p => totals[p.id] += r.pm[p.id] || 0));
+  const sorted = [...PLAYERS].sort((a, b) => totals[b.id] - totals[a.id]);
+
+  const holeRows = results.filter(r => r.mode).map(r => {
+    const wolf    = PLAYERS.find(p => p.id === r.wolfId);
+    const partner = r.partnerId ? PLAYERS.find(p => p.id === r.partnerId) : null;
+    const modeTag = r.mode === 'blind' ? '🎯 Blind' : r.mode === 'alone' ? '🚶 Alone' : `🤝 ${partner?.name||'?'}`;
+    const pts     = PLAYERS.map(p => r.pm[p.id] > 0 ? `${p.name} +${r.pm[p.id]}` : '').filter(Boolean);
+    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
+      <span style="font-family:'DM Mono',monospace;color:var(--gold);min-width:28px;">H${r.hole+1}</span>
+      <div style="width:7px;height:7px;border-radius:50%;background:${wolf?.color};flex-shrink:0;"></div>
+      <span style="min-width:42px;color:rgba(245,240,232,0.6);">${wolf?.name}</span>
+      <span style="color:rgba(245,240,232,0.3);min-width:60px;">${modeTag}</span>
+      <span style="flex:1;color:${pts.length ? 'var(--green-bright)' : 'var(--gold)'};">${pts.join(', ') || 'Draw'}</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="card">
+    <div class="card-title">🐺 Wolf</div>
+    <div style="display:flex;flex-direction:column;margin-bottom:14px;">
+      ${sorted.map((p, i) => `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;${i < sorted.length-1 ? 'border-bottom:1px solid rgba(245,240,232,0.06);' : ''}">
+        <span style="font-size:10px;color:rgba(245,240,232,0.25);width:14px;">${i+1}</span>
+        <div style="width:8px;height:8px;border-radius:50%;background:${p.color};"></div>
+        <span style="flex:1;font-size:13px;font-weight:500;">${p.name}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${totals[p.id] > 0 ? 'var(--green-bright)' : 'rgba(245,240,232,0.25)'};">${totals[p.id]} pts</span>
+      </div>`).join('')}
+    </div>
+    ${holeRows
+      ? `<div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.3);margin-bottom:7px;">Hole by Hole</div>${holeRows}`
+      : '<div class="empty-state">No wolf decisions recorded yet</div>'}
+  </div>`;
+}
+
+function renderTeamSetup() {
+  const el = document.getElementById('team-setup-list');
+  if (!el) return;
+  const teamAPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'A');
+  const teamBPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'B');
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;">
+      <div style="background:rgba(78,186,122,0.08);border:1px solid rgba(78,186,122,0.2);border-radius:10px;padding:11px;">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--team-a);margin-bottom:5px;">Team A</div>
+        ${teamAPlayers.length ? teamAPlayers.map(p=>`<div style="font-size:13px;font-weight:600;">${p.name}</div>`).join('') : '<div style="font-size:11px;color:rgba(245,240,232,0.25);">— empty —</div>'}
+      </div>
+      <div style="background:rgba(85,153,204,0.08);border:1px solid rgba(85,153,204,0.2);border-radius:10px;padding:11px;">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--team-b);margin-bottom:5px;">Team B</div>
+        ${teamBPlayers.length ? teamBPlayers.map(p=>`<div style="font-size:13px;font-weight:600;">${p.name}</div>`).join('') : '<div style="font-size:11px;color:rgba(245,240,232,0.25);">— empty —</div>'}
+      </div>
+    </div>
+    ${PLAYERS.map(p => {
+      const inA = teamAssignments[p.id] === 'A';
+      return `<div class="player-row" style="padding:6px 0;">
+        <div class="player-dot" style="background:${p.color}"></div>
+        <div class="player-name-label">${p.name}</div>
+        <div style="display:flex;gap:5px;margin-left:auto;">
+          <button onclick="setTeam('${p.id}','A')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;transition:all 0.15s;${inA ? 'background:rgba(78,186,122,0.25);border-color:var(--team-a);color:var(--team-a);' : 'background:transparent;border-color:rgba(245,240,232,0.15);color:rgba(245,240,232,0.3);'}">A</button>
+          <button onclick="setTeam('${p.id}','B')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;transition:all 0.15s;${!inA ? 'background:rgba(85,153,204,0.25);border-color:var(--team-b);color:var(--team-b);' : 'background:transparent;border-color:rgba(245,240,232,0.15);color:rgba(245,240,232,0.3);'}">B</button>
+        </div>
+      </div>`;
+    }).join('')}
+    <div style="margin-top:8px;font-size:11px;color:rgba(245,240,232,0.4);">Multiplier game: best Stableford per team × each other each hole.</div>`;
+}
+
+function setTeam(pid, team) {
+  teamAssignments[pid] = team;
+  saveState();
+  renderTeamSetup();
+}
+
+function calcSkins() {
+  const results = [];
+  let carry = 0;
+  for (let h = 0; h < 18; h++) {
+    if (!PLAYERS.some(p => scores[p.id][h] > 0)) {
+      results.push({ hole: h, unplayed: true }); continue;
+    }
+    const pts = PLAYERS.map(p => ({ p, pts: stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0 }));
+    const max = Math.max(...pts.map(x => x.pts));
+    const winners = pts.filter(x => x.pts === max && max > 0);
+    if (winners.length === 1) {
+      results.push({ hole: h, winner: winners[0].p, value: 1 + carry, carry });
+      carry = 0;
+    } else {
+      results.push({ hole: h, winner: null, tied: max > 0, carry });
+      if (max > 0) carry++;
+    }
+  }
+  return results;
+}
+
+function calcNassau() {
+  function teamPts(team, from, to) {
+    return PLAYERS.filter(p => teamAssignments[p.id] === team)
+      .reduce((s, p) => {
+        for (let h = from; h < to; h++) s += stablefordPoints(scores[p.id][h], pars[h], p.id, h) ?? 0;
+        return s;
+      }, 0);
+  }
+  return {
+    front: { a: teamPts('A',0,9),  b: teamPts('B',0,9) },
+    back:  { a: teamPts('A',9,18), b: teamPts('B',9,18) },
+    full:  { a: teamPts('A',0,18), b: teamPts('B',0,18) },
+  };
+}
+
+function renderSkinsSection() {
+  const skins = calcSkins();
+  const totals = {};
+  PLAYERS.forEach(p => { totals[p.id] = 0; });
+  skins.filter(s => s.winner).forEach(s => { totals[s.winner.id] += s.value; });
+  const board = [...PLAYERS].sort((a,b) => totals[b.id] - totals[a.id]);
+  const rows = skins.filter(s => !s.unplayed).map(s => {
+    let txt = s.winner
+      ? `<span style="color:${s.winner.color};font-weight:600;">${s.winner.name}</span>${s.value>1?` <span style="color:var(--gold);font-size:10px;">(${s.value} skins)</span>`:''}`
+      : s.tied
+        ? `<span style="color:rgba(245,240,232,0.35);">Tied — carries →</span>`
+        : `<span style="color:rgba(245,240,232,0.18);">No score</span>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
+      <span style="font-family:'DM Mono',monospace;color:var(--gold);min-width:28px;">H${s.hole+1}</span>${txt}</div>`;
+  }).join('');
+  return `<div class="card">
+    <div class="card-title">🃏 Skins</div>
+    <div style="display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;">
+      ${board.map(p=>`<div style="display:flex;align-items:center;gap:5px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
+        <span style="font-size:12px;">${p.name}</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;color:${totals[p.id]>0?'var(--cream)':'rgba(245,240,232,0.2)'};">${totals[p.id]}</span>
+      </div>`).join('')}
+    </div>
+    ${rows||'<div class="empty-state">No holes scored yet</div>'}
+  </div>`;
+}
+
+function renderNassauSection() {
+  const n = calcNassau();
+  const teamAName = PLAYERS.filter(p=>teamAssignments[p.id]==='A').map(p=>p.name).join(' & ')||'Team A';
+  const teamBName = PLAYERS.filter(p=>teamAssignments[p.id]==='B').map(p=>p.name).join(' & ')||'Team B';
+  let legsA = 0, legsB = 0;
+  function leg(label, a, b) {
+    const win = a>b?'A':b>a?'B':null;
+    if (win==='A') legsA++; else if (win==='B') legsB++;
+    const col = win==='A'?'var(--team-a)':win==='B'?'var(--team-b)':'var(--gold)';
+    const name = win==='A'?teamAName:win==='B'?teamBName:'Halved';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;">
+      <span style="font-size:11px;color:rgba(245,240,232,0.35);min-width:52px;">${label}</span>
+      <span style="font-family:'DM Mono',monospace;color:var(--team-a);font-size:12px;">${a}pts</span>
+      <span style="font-size:12px;font-weight:700;color:${col};">${name}</span>
+      <span style="font-family:'DM Mono',monospace;color:var(--team-b);font-size:12px;">${b}pts</span>
+    </div>`;
+  }
+  const frontHTML = leg('Front 9', n.front.a, n.front.b);
+  const backHTML  = leg('Back 9',  n.back.a,  n.back.b);
+  const fullHTML  = leg('Overall', n.full.a,  n.full.b);
+  return `<div class="card">
+    <div class="card-title">🏆 Nassau</div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(245,240,232,0.35);margin-bottom:8px;padding:0 2px;">
+      <span style="color:var(--team-a);">${teamAName}</span>
+      <span style="color:var(--team-b);">${teamBName}</span>
+    </div>
+    ${frontHTML}${backHTML}${fullHTML}
+    <div style="margin-top:8px;display:flex;gap:12px;">
+      <span style="font-size:11px;color:rgba(245,240,232,0.4);">Legs won:</span>
+      <span style="font-size:11px;color:var(--team-a);font-weight:600;">${teamAName} ${legsA}</span>
+      <span style="font-size:11px;color:var(--team-b);font-weight:600;">${teamBName} ${legsB}</span>
+    </div>
+  </div>`;
+}
+
+function renderDailyHcps() {
+  const el = document.getElementById('daily-hcp-list');
+  if (!el) return;
+  const coursePar = pars.reduce((a, b) => a + b, 0);
+  el.innerHTML = PLAYERS.map(p => {
+    const hi = parseFloat(handicaps[p.id]) || 0;
+    const courseHcp = hi * (slopeRating / 113) + (courseRating - coursePar);
+    const playingHcp = Math.round(courseHcp * 0.95);
+    return `<div class="player-row" style="padding:6px 0;">
       <div class="player-dot" style="background:${p.color}"></div>
       <div class="player-name-label">${p.name}</div>
-      <span class="player-team-badge ${p.team==='A'?'team-a-badge':'team-b-badge'}">Team ${p.team}</span>
-      <div style="display:flex;align-items:center;gap:4px;">
-        <span style="font-size:10px;color:rgba(245,240,232,0.4);">HCP</span>
-        <input class="hcp-input" type="number" min="0" max="54" value="${handicaps[p.id]}"
-          oninput="handicaps['${p.id}']=parseInt(this.value)||0;saveState()" inputmode="numeric">
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:10px;color:rgba(245,240,232,0.4);">Playing HCP</span>
+        <span style="font-size:18px;font-weight:700;color:var(--green-bright);min-width:28px;text-align:right;">${playingHcp}</span>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+function getPlayingHandicap(pid) {
+  const hi  = parseFloat(handicaps[pid]) || 0;
+  const par = pars.reduce((a, b) => a + b, 0);
+  return Math.round((hi * (slopeRating / 113) + (courseRating - par)) * 0.95);
+}
+
+function renderGrossNetSection() {
+  if (!activeGames.gross && !activeGames.net) return '';
+  const showG = activeGames.gross;
+  const showN = activeGames.net;
+  const rows  = [...PLAYERS].map(p => ({
+    p,
+    gross: scores[p.id].reduce((s, v) => s + v, 0),
+    ph:    getPlayingHandicap(p.id),
+  })).map(r => ({ ...r, net: r.gross > 0 ? r.gross - r.ph : 0 }))
+    .sort((a, b) => showN ? (a.net || 999) - (b.net || 999) : (a.gross || 999) - (b.gross || 999));
+  const title = showG && showN ? '📊 Gross & Net' : showG ? '📊 Gross' : '🏅 Net';
+  return `<div class="card">
+    <div class="card-title">${title}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,240,232,0.35);">
+          <th style="padding:4px 0;text-align:left;font-weight:500;"></th>
+          ${showG ? '<th style="padding:4px 8px;text-align:center;font-weight:500;">Gross</th>' : ''}
+          ${showN ? '<th style="padding:4px 8px;text-align:center;font-weight:500;">Net</th>' : ''}
+          ${showN ? '<th style="padding:4px 8px;text-align:center;font-weight:500;">HCP</th>' : ''}
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((r, i) => `<tr style="${i < rows.length-1 ? 'border-bottom:1px solid rgba(245,240,232,0.05);' : ''}">
+          <td style="padding:7px 0;">
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span style="font-size:10px;color:rgba(245,240,232,0.25);width:12px;">${i+1}</span>
+              <div style="width:7px;height:7px;border-radius:50%;background:${r.p.color};"></div>
+              <span style="font-size:13px;font-weight:500;">${r.p.name}</span>
+            </div>
+          </td>
+          ${showG ? `<td style="padding:7px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:${r.gross>0?'var(--cream)':'rgba(245,240,232,0.2)'};">${r.gross||'—'}</td>` : ''}
+          ${showN ? `<td style="padding:7px 8px;text-align:center;font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:${r.gross>0?'var(--green-bright)':'rgba(245,240,232,0.2)'};">${r.gross>0?r.net:'—'}</td>` : ''}
+          ${showN ? `<td style="padding:7px 8px;text-align:center;font-size:11px;color:rgba(245,240,232,0.3);">${r.ph}</td>` : ''}
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
 }
 
 // ══════════════════════════════════════════════
 // COURSE PAGE
 // ══════════════════════════════════════════════
-function renderCourseTable() {
-  const rows = HOLE_DATA.map((_, i) => {
-    const par = pars[i];
-    const idx = indices[i];
-    const typeLabel = par===3 ? '<span class="ct-type ct-type-3">Par 3 · CTP</span>' :
-                      par===5 ? '<span class="ct-type ct-type-5">Par 5 · LD</span>' :
-                                '<span class="ct-type ct-type-4">Par 4</span>';
-    const rowClass = par===3 ? 'par3-row' : par===5 ? 'par5-row' : '';
-    return `<tr class="${rowClass}">
-      <td class="ct-hole">${i+1}</td>
-      <td>
-        <button class="ct-par-btn" onclick="adjustCoursePar(${i},-1)">−</button>
-        <span class="ct-par-val" id="ctp-${i}">${par}</span>
-        <button class="ct-par-btn" onclick="adjustCoursePar(${i},1)">+</button>
-      </td>
-      <td>
-        <input class="ct-idx-input" type="number" min="1" max="18" value="${idx}"
-          id="cti-${i}" oninput="indices[${i}]=parseInt(this.value)||${idx};saveState()" inputmode="numeric">
-      </td>
-      <td>${typeLabel}</td>
-    </tr>`;
-  }).join('');
-  document.getElementById('course-table').innerHTML = `
-    <thead><tr>
-      <th>Hole</th><th>Par</th><th>SI</th><th>Type</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>`;
-}
-
-function adjustCoursePar(hole, delta) {
-  pars[hole] = Math.max(3, Math.min(5, pars[hole] + delta));
-  saveState();
-  renderCourseTable();
-}
 
 // ══════════════════════════════════════════════
 // SCORE PAGE
@@ -994,19 +1591,22 @@ function renderHole() {
 
   // Comp banner
   const bannerArea = document.getElementById('comp-banner-area');
-  if (par===3) {
+  if (activeGames.ctpLd && par===3) {
     bannerArea.innerHTML = `<div class="comp-banner ctp-banner">📍 Closest to the Pin
       <select class="comp-winner-select" onchange="compWinners[${h}].ctp=this.value;saveState()">
         <option value="">-- Winner --</option>
         ${PLAYERS.map(p=>`<option value="${p.id}" ${compWinners[h].ctp===p.id?'selected':''}>${p.name}</option>`).join('')}
       </select></div>`;
-  } else if (par===5) {
+  } else if (activeGames.ctpLd && par===5) {
     bannerArea.innerHTML = `<div class="comp-banner ld-banner">💨 Long Drive
       <select class="comp-winner-select" onchange="compWinners[${h}].ld=this.value;saveState()">
         <option value="">-- Winner --</option>
         ${PLAYERS.map(p=>`<option value="${p.id}" ${compWinners[h].ld===p.id?'selected':''}>${p.name}</option>`).join('')}
       </select></div>`;
   } else { bannerArea.innerHTML = ''; }
+
+  // Wolf hole section
+  renderWolfHoleSection(h);
 
   // Score rows
   document.getElementById('score-grid').innerHTML = PLAYERS.map(p => {
@@ -1018,7 +1618,7 @@ function renderHole() {
       <div class="score-player-dot" style="background:${p.color}"></div>
       <div class="score-player-info">
         <div class="score-player-name">${p.name}${dots}</div>
-        <div class="score-player-sub">HCP ${handicaps[p.id]} · ${sr} stroke${sr!==1?'s':''} · Team ${p.team}</div>
+        <div class="score-player-sub">HCP ${handicaps[p.id]} · ${sr} stroke${sr!==1?'s':''} · Team ${teamAssignments[p.id]}</div>
       </div>
       <div class="score-controls">
         <button class="score-btn" onclick="adjustScore('${p.id}',${h},-1)">−</button>
@@ -1026,6 +1626,7 @@ function renderHole() {
         <button class="score-btn" onclick="adjustScore('${p.id}',${h},1)">+</button>
       </div>
       <span class="score-points ${ptsClass(pts)}" id="sp-${p.id}">${ptsLabel(pts)}</span>
+      <button id="tp-${p.id}" class="three-putt-btn${threePutts[p.id][h] ? ' three-putt-on' : ''}" onclick="toggleThreePutt('${p.id}',${h})">3P</button>
     </div>`;
   }).join('');
 
@@ -1042,7 +1643,15 @@ function adjustScore(pid, hole, delta) {
   el.textContent = ptsLabel(pts);
   saveState();
   renderHoleDots();
+  if (activeGames.wolf) renderWolfHoleSection(hole);
   triggerAutoSaveIfHoleComplete(hole);
+}
+
+function toggleThreePutt(pid, hole) {
+  threePutts[pid][hole] = !threePutts[pid][hole];
+  saveState();
+  const btn = document.getElementById('tp-' + pid);
+  if (btn) btn.className = 'three-putt-btn' + (threePutts[pid][hole] ? ' three-putt-on' : '');
 }
 
 function adjustPar(delta) {
@@ -1114,6 +1723,26 @@ function renderScorecard() {
       </tr>
       ${playerRows}
     </tbody>`;
+
+  const tpEl = document.getElementById('three-putt-summary');
+  if (tpEl) {
+    const anyPutts = PLAYERS.some(p => threePutts[p.id] && threePutts[p.id].some(Boolean));
+    tpEl.innerHTML = anyPutts ? `<div class="card" style="margin-top:12px;">
+      <div class="card-title">⛳ 3-Putt Summary</div>
+      ${PLAYERS.map(p => {
+        const tp = threePutts[p.id] || Array(18).fill(false);
+        const total = tp.filter(Boolean).length;
+        const frontCt = tp.slice(0,9).filter(Boolean).length;
+        const backCt  = tp.slice(9).filter(Boolean).length;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(245,240,232,0.05);">
+          <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
+          <span style="flex:1;font-size:12px;font-weight:500;">${p.name}</span>
+          <span style="font-size:10px;color:rgba(245,240,232,0.4);">F:${frontCt} · B:${backCt}</span>
+          <span style="font-size:14px;font-weight:700;min-width:20px;text-align:right;color:${total>0?'#e07070':'rgba(245,240,232,0.25)'};">${total}</span>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -1121,62 +1750,78 @@ function renderScorecard() {
 // ══════════════════════════════════════════════
 function renderTeams() {
   const {totA, totB, mult} = teamTotals();
+  const teamAPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'A');
+  const teamBPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'B');
+  const teamAName = teamAPlayers.map(p => p.name).join(' & ') || 'Team A';
+  const teamBName = teamBPlayers.map(p => p.name).join(' & ') || 'Team B';
+
+  const diff = totA - totB;
   let resultHTML = '';
-  const diff = totA-totB;
-  if (diff>0) resultHTML=`<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-a);">Colby & Mitch</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`;
-  else if (diff<0) resultHTML=`<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-b);">Dave & Scott</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`;
+  if (diff>0) resultHTML=`<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-a);">${teamAName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`;
+  else if (diff<0) resultHTML=`<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-b);">${teamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`;
   else resultHTML=`<div class="result-banner" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);"><div class="result-label">Status</div><div class="result-text" style="color:var(--gold);">All Square</div></div>`;
 
-  let holeRows='';
-  for (let h=0;h<18;h++) {
-    if (!PLAYERS.some(p=>scores[p.id][h]>0)) continue;
-    const {sumA,sumB,product}=teamMultiplierHole(h);
-    holeRows+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
-      <span style="font-family:'DM Mono',monospace;color:var(--gold);min-width:28px;">H${h+1}</span>
-      <span style="color:var(--team-a);min-width:26px;font-family:'DM Mono',monospace;">${sumA}pt</span>
-      <span style="color:rgba(245,240,232,0.3)">×</span>
-      <span style="color:var(--team-b);min-width:26px;font-family:'DM Mono',monospace;">${sumB}pt</span>
-      <span style="color:rgba(245,240,232,0.3)">=</span>
-      <span style="font-family:'DM Mono',monospace;font-weight:700;color:${product>0?'var(--cream)':'rgba(245,240,232,0.25)'};">${product}</span>
-    </div>`;
-  }
-
-  document.getElementById('teams-content').innerHTML = resultHTML +
-    `<div class="team-card team-a-card">
-      <div class="team-name">Colby & Mitch</div>
-      <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-a);">${totA} pts</span></div>
-      ${['colby','mitch'].map(pid=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${PLAYERS.find(x=>x.id===pid).name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(pid)} pts</span></div>`).join('')}
-    </div>
-    <div class="team-card team-b-card">
-      <div class="team-name">Dave & Scott</div>
-      <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-b);">${totB} pts</span></div>
-      ${['dave','scott'].map(pid=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${PLAYERS.find(x=>x.id===pid).name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(pid)} pts</span></div>`).join('')}
-    </div>
-    <div class="card">
+  let multiplierHTML = '';
+  if (activeGames.teamMultiplier) {
+    let holeRows='';
+    for (let h=0;h<18;h++) {
+      if (!PLAYERS.some(p=>scores[p.id][h]>0)) continue;
+      const {sumA,sumB,product}=teamMultiplierHole(h);
+      holeRows+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
+        <span style="font-family:'DM Mono',monospace;color:var(--gold);min-width:28px;">H${h+1}</span>
+        <span style="color:var(--team-a);min-width:26px;font-family:'DM Mono',monospace;">${sumA}pt</span>
+        <span style="color:rgba(245,240,232,0.3)">×</span>
+        <span style="color:var(--team-b);min-width:26px;font-family:'DM Mono',monospace;">${sumB}pt</span>
+        <span style="color:rgba(245,240,232,0.3)">=</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;color:${product>0?'var(--cream)':'rgba(245,240,232,0.25)'};">${product}</span>
+      </div>`;
+    }
+    multiplierHTML = `<div class="card">
       <div class="card-title">✖️ Multiplier Breakdown</div>
       <div class="team-score-row" style="margin-bottom:7px;"><span class="team-score-label">Running Total</span><span class="team-score-val" style="color:var(--gold);">${mult}</span></div>
       <div style="font-size:10px;color:rgba(245,240,232,0.35);margin-bottom:7px;">Combined team Stableford per hole × each other</div>
       ${holeRows||'<div class="empty-state">No holes scored yet</div>'}
     </div>`;
+  }
+
+  document.getElementById('teams-content').innerHTML = resultHTML +
+    `<div class="team-card team-a-card">
+      <div class="team-name">${teamAName}</div>
+      <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-a);">${totA} pts</span></div>
+      ${teamAPlayers.map(p=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${p.name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(p.id)} pts</span></div>`).join('')}
+    </div>
+    <div class="team-card team-b-card">
+      <div class="team-name">${teamBName}</div>
+      <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-b);">${totB} pts</span></div>
+      ${teamBPlayers.map(p=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${p.name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(p.id)} pts</span></div>`).join('')}
+    </div>` +
+    multiplierHTML +
+    (activeGames.skins  ? renderSkinsSection()  : '') +
+    (activeGames.nassau ? renderNassauSection() : '') +
+    (activeGames.wolf   ? renderWolfSection()   : '') +
+    (activeGames.gross || activeGames.net ? renderGrossNetSection() : '');
 }
 
 // ══════════════════════════════════════════════
 // COMPS PAGE
 // ══════════════════════════════════════════════
 function renderComps() {
+  const off = `<div class="empty-state">Disabled — turn on CTP & Long Drive in Setup → Game Format</div>`;
+  if (!activeGames.ctpLd) {
+    document.getElementById('ctp-list').innerHTML = off;
+    document.getElementById('ld-list').innerHTML  = off;
+    return;
+  }
   const par3 = pars.map((p,i)=>p===3?i:-1).filter(h=>h>=0);
   const par5 = pars.map((p,i)=>p===5?i:-1).filter(h=>h>=0);
-
   function winnerName(pid) {
     if (!pid) return '<span style="color:rgba(245,240,232,0.2)">— TBD —</span>';
     const pl = PLAYERS.find(x=>x.id===pid);
     return `<span style="color:${pl.color};font-weight:600;">${pl.name}</span>`;
   }
-
   document.getElementById('ctp-list').innerHTML = par3.length ?
     par3.map(h=>`<div class="comp-row"><span class="comp-hole">H${h+1}</span><span class="comp-type">📍 CTP</span><span class="comp-winner">${winnerName(compWinners[h].ctp)}</span></div>`).join('') :
     '<div class="empty-state">No par 3s</div>';
-
   document.getElementById('ld-list').innerHTML = par5.length ?
     par5.map(h=>`<div class="comp-row"><span class="comp-hole">H${h+1}</span><span class="comp-type">💨 Long Drive</span><span class="comp-winner">${winnerName(compWinners[h].ld)}</span></div>`).join('') :
     '<div class="empty-state">No par 5s</div>';
@@ -1185,68 +1830,200 @@ function renderComps() {
 // ══════════════════════════════════════════════
 // PAGE ROUTING
 // ══════════════════════════════════════════════
-const PAGES = ['setup','course','score','card','teams','comps','history'];
+const PAGES = ['setup','score','card','teams','comps','history'];
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   document.querySelectorAll('.nav-tab')[PAGES.indexOf(name)].classList.add('active');
-  if (name==='course') renderCourseTable();
-  if (name==='score')  renderHole();
-  if (name==='card')   renderScorecard();
-  if (name==='teams')  renderTeams();
+  if (name==='setup') {
+    const wizard = document.getElementById('setup-wizard');
+    const active = document.getElementById('setup-active');
+    if (gameActive) {
+      if (wizard) wizard.style.display = 'none';
+      if (active) active.style.display = '';
+      renderActiveGame();
+    } else {
+      if (wizard) wizard.style.display = '';
+      if (active) active.style.display = 'none';
+      showSetupStep(1);
+      renderSetup();
+    }
+  }
+  if (name==='score')   renderHole();
+  if (name==='card')    renderScorecard();
+  if (name==='teams')   renderTeams();
   if (name==='comps')   renderComps();
   if (name==='history') renderHistoryPage();
 }
 
 // ══════════════════════════════════════════════
-// SCORECARD SCAN — photo → AI → pars & indices
+// COURSE LIBRARY — search & load from Supabase
 // ══════════════════════════════════════════════
-function selectTee(btn, tee) {
-  selectedTee = tee;
+let savedCourses  = null;   // null = not yet fetched
+let _courseHits   = [];     // current dropdown results
+
+async function fetchSavedCourses() {
+  if (savedCourses !== null) return savedCourses;
+  try {
+    const { data, error } = await db.from('scorecards')
+      .select('id, course_name, tees, scanned_at')
+      .order('scanned_at', { ascending: false });
+    if (error || !data) { savedCourses = []; return []; }
+    const seen = new Set();
+    savedCourses = data.filter(c => {
+      const key = (c.course_name || '').trim().toLowerCase();
+      if (!key || key === 'unknown' || !c.tees || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  } catch(e) { savedCourses = []; }
+  return savedCourses;
+}
+
+async function onCourseSearchFocus() {
+  await fetchSavedCourses();
+  onCourseSearchInput(document.getElementById('course-search-input').value);
+}
+
+function onCourseSearchInput(query) {
+  const resultsEl = document.getElementById('course-search-results');
+  if (!savedCourses) return;
+  const q = query.trim().toLowerCase();
+  _courseHits = q
+    ? savedCourses.filter(c => c.course_name.toLowerCase().includes(q))
+    : savedCourses;
+  if (!_courseHits.length) {
+    resultsEl.innerHTML = `<div style="padding:12px;font-size:12px;color:rgba(245,240,232,0.3);text-align:center;">${q ? 'No matching courses' : 'No saved courses yet'}</div>`;
+    resultsEl.style.display = 'block';
+    return;
+  }
+  resultsEl.innerHTML = _courseHits.map((c, i) => {
+    const teeNames = Object.keys(c.tees || {});
+    const date = new Date(c.scanned_at).toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' });
+    return `<div onmousedown="selectSavedCourse(${i})"
+      style="padding:10px 13px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.1s;"
+      onmouseover="this.style.background='rgba(78,186,122,0.09)'"
+      onmouseout="this.style.background=''">
+      <div style="font-size:13px;font-weight:600;">${c.course_name}</div>
+      <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:2px;">${teeNames.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join(' · ')} &nbsp;·&nbsp; ${date}</div>
+    </div>`;
+  }).join('');
+  resultsEl.style.display = 'block';
+}
+
+function onCourseSearchBlur() {
+  setTimeout(() => {
+    const el = document.getElementById('course-search-results');
+    if (el) el.style.display = 'none';
+  }, 150);
+}
+
+function selectSavedCourse(idx) {
+  const course = _courseHits[idx];
+  if (!course) return;
+  document.getElementById('course-search-results').style.display = 'none';
+  document.getElementById('course-search-input').value = '';
+
+  courseName = course.course_name;
+  const ni = document.getElementById('course-name-input');
+  if (ni) { ni.value = courseName; }
   saveState();
-  document.querySelectorAll('.tee-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  updateHeader();
+
+  lastScanResult = { courseName: course.course_name, tees: course.tees };
+  lastScanSaved  = true;
+  lastScanImage  = null;
+
+  const statusEl   = document.getElementById('scan-status');
+  const previewWrap = document.getElementById('scan-preview-wrap');
+  const msgEl      = document.getElementById('scan-message');
+  statusEl.style.display    = 'block';
+  previewWrap.style.display = 'none';
+  msgEl.style.background = 'rgba(78,186,122,0.12)';
+  msgEl.style.color      = 'var(--green-bright)';
+  const teeNames = Object.keys(course.tees || {});
+  msgEl.textContent = `✅ ${course.course_name} loaded from library · pick your tees below`;
+  renderTeeOptions(course.tees, teeNames);
+}
+
+// ══════════════════════════════════════════════
+// SCORECARD SCAN — photo → AI → pick tees → apply
+// ══════════════════════════════════════════════
+let lastScanResult = null;
+let lastScanImage  = null;
+let lastScanSaved  = false;
+
+const TEE_STYLES = {
+  yellow: { bg: 'rgba(255,215,0,0.18)',   border: 'rgba(255,215,0,0.6)',    color: '#ffe566' },
+  white:  { bg: 'rgba(255,255,255,0.08)', border: 'rgba(255,255,255,0.25)', color: 'rgba(245,240,232,0.7)' },
+  blue:   { bg: 'rgba(85,153,204,0.15)',  border: 'rgba(85,153,204,0.4)',   color: '#88bbee' },
+  red:    { bg: 'rgba(224,85,85,0.15)',   border: 'rgba(224,85,85,0.4)',    color: '#f08080' },
+  black:  { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.12)', color: 'rgba(245,240,232,0.4)' },
+  gold:   { bg: 'rgba(201,168,76,0.18)',  border: 'rgba(201,168,76,0.6)',   color: '#c9a84c' },
+};
+
+// Converts any image (incl. HEIC) to a JPEG data URL via canvas.
+// Also caps resolution so large gallery photos don't bloat the API payload.
+function normaliseImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 2048;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.92));
+    };
+    img.onerror = () => reject(new Error('Could not read image — try a different photo'));
+    img.src = dataUrl;
+  });
 }
 
 function handleScorecardImage(event) {
   const file = event.target.files[0];
   if (!file) return;
-  const statusEl = document.getElementById('scan-status');
-  const msgEl = document.getElementById('scan-message');
-  const preview = document.getElementById('scan-preview');
+  const statusEl  = document.getElementById('scan-status');
+  const msgEl     = document.getElementById('scan-message');
+  const preview   = document.getElementById('scan-preview');
+  const teeSection = document.getElementById('tee-select-section');
   statusEl.style.display = 'block';
+  document.getElementById('scan-preview-wrap').style.display = '';
+  teeSection.style.display = 'none';
+  lastScanResult = null;
+  lastScanImage  = null;
+  lastScanSaved  = false;
   const reader = new FileReader();
   reader.onload = async (e) => {
-    const dataUrl = e.target.result;
+    const dataUrl = await normaliseImage(e.target.result);
     preview.src = dataUrl;
-    const base64 = dataUrl.split(',')[1];
-    const mimeType = file.type || 'image/jpeg';
+    const base64   = dataUrl.split(',')[1];
+    const mimeType = 'image/jpeg';
     msgEl.style.background = 'rgba(201,168,76,0.1)';
     msgEl.style.color = 'var(--gold)';
-    msgEl.textContent = `🔍 Reading ${selectedTee} tee data from scorecard…`;
+    msgEl.textContent = '🔍 Reading scorecard…';
     try {
-      const result = await scanScorecardImage(base64, mimeType, selectedTee);
-      if (result && result.holes && result.holes.length === 18) {
-        result.holes.forEach((h, i) => {
-          if (h.par >= 3 && h.par <= 5) pars[i] = h.par;
-          if (h.index >= 1 && h.index <= 18) indices[i] = h.index;
-        });
-        if (result.courseName) {
-          courseName = result.courseName;
-          const ni = document.getElementById('course-name-input');
-          if (ni) ni.value = courseName;
-          updateHeader();
-        }
-        saveState();
-        renderCourseTable();
-        const par = pars.reduce((a,b)=>a+b,0);
-        msgEl.style.background = 'rgba(78,186,122,0.12)';
-        msgEl.style.color = 'var(--green-bright)';
-        msgEl.textContent = `✅ Loaded! ${result.courseName || 'Course'} · ${selectedTee} tees · Par ${par}`;
-      } else {
-        throw new Error('Could not read 18 holes — try a clearer photo');
+      const result   = await scanScorecardImage(base64, mimeType);
+      const tees     = result.tees || {};
+      const teeNames = Object.keys(tees).filter(t => tees[t] && tees[t].length === 18);
+      if (teeNames.length === 0) throw new Error('Could not read any tee data — try a clearer photo');
+      lastScanResult = result;
+      lastScanImage  = { base64, mimeType };
+      if (result.courseName) {
+        courseName = result.courseName;
+        const ni = document.getElementById('course-name-input');
+        if (ni) ni.value = courseName;
+        updateHeader();
       }
+      msgEl.style.background = 'rgba(78,186,122,0.12)';
+      msgEl.style.color = 'var(--green-bright)';
+      msgEl.textContent = `✅ ${result.courseName || 'Scorecard'} scanned · ${teeNames.length} tee set${teeNames.length !== 1 ? 's' : ''} found — select yours below`;
+      renderTeeOptions(tees, teeNames);
     } catch(err) {
       msgEl.style.background = 'rgba(224,85,85,0.1)';
       msgEl.style.color = 'var(--red)';
@@ -1257,20 +2034,72 @@ function handleScorecardImage(event) {
   event.target.value = '';
 }
 
-async function scanScorecardImage(base64Data, mimeType, teeColour) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+function renderTeeOptions(tees, teeNames) {
+  const section   = document.getElementById('tee-select-section');
+  const container = document.getElementById('tee-options');
+  container.innerHTML = '';
+  teeNames.forEach(name => {
+    const s   = TEE_STYLES[name] || { bg: 'rgba(255,255,255,0.08)', border: 'rgba(255,255,255,0.2)', color: 'var(--cream)' };
+    const btn = document.createElement('button');
+    btn.className    = 'tee-btn';
+    btn.dataset.tee  = name;
+    btn.style.cssText = `background:${s.bg};border:2px solid ${s.border};color:${s.color};`;
+    btn.textContent  = `● ${name.charAt(0).toUpperCase() + name.slice(1)}`;
+    btn.onclick = () => applyTee(name, btn);
+    container.appendChild(btn);
+  });
+  section.style.display = 'block';
+}
+
+function applyTee(tee, btn) {
+  if (!lastScanResult) return;
+  const holes = lastScanResult.tees[tee];
+  if (!holes || holes.length !== 18) return;
+  holes.forEach((h, i) => {
+    if (h.par >= 3 && h.par <= 5) pars[i] = h.par;
+    if (h.index >= 1 && h.index <= 18) indices[i] = h.index;
+  });
+  selectedTee = tee;
+  saveState();
+  document.querySelectorAll('#tee-options .tee-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const par   = pars.reduce((a, b) => a + b, 0);
+  const msgEl = document.getElementById('scan-message');
+  if (msgEl) {
+    msgEl.style.background = 'rgba(78,186,122,0.12)';
+    msgEl.style.color = 'var(--green-bright)';
+    msgEl.textContent = `✅ ${tee.charAt(0).toUpperCase() + tee.slice(1)} tees loaded · Par ${par}`;
+  }
+  if (!lastScanSaved && lastScanImage) {
+    lastScanSaved = true;
+    saveScorecardToCloud(
+      lastScanResult.courseName || courseName, tee, lastScanResult.tees,
+      base64ToBlob(lastScanImage.base64, lastScanImage.mimeType), lastScanImage.mimeType
+    );
+  }
+  showCourseConfirm();
+}
+
+async function scanScorecardImage(base64Data, mimeType) {
+  const response = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
+      max_tokens: 2000,
       messages: [{
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Data } },
-          { type: 'text', text: `This is a golf scorecard. Extract hole data for the ${teeColour} tees. Return ONLY JSON:
-{"courseName":"Course name","tee":"${teeColour}","holes":[{"hole":1,"par":4,"index":7},{"hole":2,"par":3,"index":15},...all 18]}
-Rules: par is 3/4/5, index is 1-18 (may be labelled SI/Hdcp/Index), combine front+back 9 in order, make best guess if unclear.` }
+          { type: 'text', text: `This is a golf scorecard. Extract hole data for ALL available tee colours.
+Return ONLY valid JSON in this exact format:
+{"courseName":"Course name","tees":{"yellow":[{"hole":1,"par":4,"index":7,"distance":350},...],"white":[...]}}
+Rules:
+- Only include tees that actually appear on the scorecard
+- par is 3, 4, or 5; index is 1-18 (may be labelled SI/Hdcp/Index/Stroke); distance in metres/yards if shown, else 0
+- Each tee must have all 18 holes, front+back 9 combined in order (1–18)
+- Tee key names must be lowercase: yellow, white, blue, red, black, gold, etc.
+- Make best guess if any value is unclear` }
         ]
       }]
     })
@@ -1285,6 +2114,40 @@ Rules: par is 3/4/5, index is 1-18 (may be labelled SI/Hdcp/Index), combine fron
   return JSON.parse(jsonMatch[0]);
 }
 
+function base64ToBlob(base64, mimeType) {
+  const bytes = atob(base64);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mimeType });
+}
+
+async function saveScorecardToCloud(course, tee, tees, imageBlob, imageMime) {
+  try {
+    let imagePath = null;
+    if (imageBlob) {
+      const ext = imageMime === 'image/png' ? 'png' : 'jpg';
+      const filename = `scorecards/${Date.now()}.${ext}`;
+      const { data: uploadData, error: uploadError } = await db.storage
+        .from('scorecard-images')
+        .upload(filename, imageBlob, { contentType: imageMime, upsert: false });
+      if (uploadError) {
+        console.error('Image upload failed:', uploadError);
+      } else {
+        imagePath = uploadData.path;
+      }
+    }
+    const { error } = await db.from('scorecards').insert({
+      course_name: course,
+      selected_tee: tee,
+      tees: tees,
+      image_path: imagePath,
+    });
+    if (error) console.error('Scorecard save failed:', error);
+  } catch(e) {
+    console.error('Scorecard save failed:', e);
+  }
+}
+
 function updateHeader() {
   const h1 = document.querySelector('.app-header h1');
   if (h1) h1.textContent = courseName || 'Golf Scorecard';
@@ -1295,8 +2158,12 @@ function updateHeader() {
 loadState();
 renderSetup();
 updateHeader();
-const _cni = document.getElementById('course-name-input');
-if (_cni) _cni.value = courseName;
+
+// ══════════════════════════════════════════════
+// PWA — register service worker for offline play
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
