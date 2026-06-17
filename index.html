@@ -1129,29 +1129,33 @@ function handleScorecardImage(event) {
     const mimeType = file.type || 'image/jpeg';
     msgEl.style.background = 'rgba(201,168,76,0.1)';
     msgEl.style.color = 'var(--gold)';
-    msgEl.textContent = `🔍 Reading ${selectedTee} tee data from scorecard…`;
+    msgEl.textContent = `🔍 Reading scorecard…`;
     try {
-      const result = await scanScorecardImage(base64, mimeType, selectedTee);
-      if (result && result.holes && result.holes.length === 18) {
-        result.holes.forEach((h, i) => {
-          if (h.par >= 3 && h.par <= 5) pars[i] = h.par;
-          if (h.index >= 1 && h.index <= 18) indices[i] = h.index;
-        });
-        if (result.courseName) {
-          courseName = result.courseName;
-          const ni = document.getElementById('course-name-input');
-          if (ni) ni.value = courseName;
-          updateHeader();
-        }
-        saveState();
-        renderCourseTable();
-        const par = pars.reduce((a,b)=>a+b,0);
-        msgEl.style.background = 'rgba(78,186,122,0.12)';
-        msgEl.style.color = 'var(--green-bright)';
-        msgEl.textContent = `✅ Loaded! ${result.courseName || 'Course'} · ${selectedTee} tees · Par ${par}`;
-      } else {
-        throw new Error('Could not read 18 holes — try a clearer photo');
+      const result = await scanScorecardImage(base64, mimeType);
+      const teeName = selectedTee.toLowerCase();
+      const teeHoles = result.tees && result.tees[teeName];
+      if (!teeHoles || teeHoles.length !== 18) {
+        const available = result.tees ? Object.keys(result.tees).join(', ') : 'none';
+        throw new Error(`${selectedTee} tee not found on scorecard (found: ${available || 'none'}) — try a clearer photo or select a different tee`);
       }
+      teeHoles.forEach((h, i) => {
+        if (h.par >= 3 && h.par <= 5) pars[i] = h.par;
+        if (h.index >= 1 && h.index <= 18) indices[i] = h.index;
+      });
+      if (result.courseName) {
+        courseName = result.courseName;
+        const ni = document.getElementById('course-name-input');
+        if (ni) ni.value = courseName;
+        updateHeader();
+      }
+      saveState();
+      renderCourseTable();
+      const par = pars.reduce((a,b)=>a+b,0);
+      const teeCount = result.tees ? Object.keys(result.tees).length : 1;
+      msgEl.style.background = 'rgba(78,186,122,0.12)';
+      msgEl.style.color = 'var(--green-bright)';
+      msgEl.textContent = `✅ Loaded! ${result.courseName || 'Course'} · ${selectedTee} tees · Par ${par} · ${teeCount} tee set${teeCount !== 1 ? 's' : ''} saved`;
+      saveScorecardToCloud(result.courseName || courseName, selectedTee, result.tees || {});
     } catch(err) {
       msgEl.style.background = 'rgba(224,85,85,0.1)';
       msgEl.style.color = 'var(--red)';
@@ -1162,20 +1166,26 @@ function handleScorecardImage(event) {
   event.target.value = '';
 }
 
-async function scanScorecardImage(base64Data, mimeType, teeColour) {
+async function scanScorecardImage(base64Data, mimeType) {
   const response = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
+      max_tokens: 2000,
       messages: [{
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Data } },
-          { type: 'text', text: `This is a golf scorecard. Extract hole data for the ${teeColour} tees. Return ONLY JSON:
-{"courseName":"Course name","tee":"${teeColour}","holes":[{"hole":1,"par":4,"index":7},{"hole":2,"par":3,"index":15},...all 18]}
-Rules: par is 3/4/5, index is 1-18 (may be labelled SI/Hdcp/Index), combine front+back 9 in order, make best guess if unclear.` }
+          { type: 'text', text: `This is a golf scorecard. Extract hole data for ALL available tee colours.
+Return ONLY valid JSON in this exact format:
+{"courseName":"Course name","tees":{"yellow":[{"hole":1,"par":4,"index":7,"distance":350},...],"white":[...]}}
+Rules:
+- Only include tees that actually appear on the scorecard
+- par is 3, 4, or 5; index is 1-18 (may be labelled SI/Hdcp/Index/Stroke); distance in metres/yards if shown, else 0
+- Each tee must have all 18 holes, front+back 9 combined in order (1–18)
+- Tee key names must be lowercase: yellow, white, blue, red, black, gold, etc.
+- Make best guess if any value is unclear` }
         ]
       }]
     })
@@ -1188,6 +1198,19 @@ Rules: par is 3/4/5, index is 1-18 (may be labelled SI/Hdcp/Index), combine fron
   const jsonMatch = clean.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('No data returned');
   return JSON.parse(jsonMatch[0]);
+}
+
+async function saveScorecardToCloud(course, tee, tees) {
+  try {
+    const { error } = await db.from('scorecards').insert({
+      course_name: course,
+      selected_tee: tee,
+      tees: tees,
+    });
+    if (error) console.error('Scorecard save failed:', error);
+  } catch(e) {
+    console.error('Scorecard save failed:', e);
+  }
 }
 
 function updateHeader() {
