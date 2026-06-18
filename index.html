@@ -204,7 +204,7 @@
 
 <div class="app-header">
   <h1>Shortland Waters Golf Club</h1>
-  <div class="subtitle">Stableford Scorecard · Par 71 · <span id="save-indicator" style="color:rgba(78,186,122,0.7);">💾 Auto-saving</span></div>
+  <div class="subtitle">Stableford Scorecard · <span id="course-par-display">Par 71</span> · <span id="save-indicator" style="color:rgba(78,186,122,0.7);">💾 Auto-saving</span></div>
 </div>
 
 <div class="nav-tabs">
@@ -1678,6 +1678,7 @@ function adjustPar(delta) {
   pars[currentHole] = Math.max(3, Math.min(5, pars[currentHole]+delta));
   saveState();
   renderHole();
+  updateHeader();
 }
 
 function prevHole() { if (currentHole>0) { currentHole--; saveState(); renderHole(); } }
@@ -1774,17 +1775,24 @@ function renderCardLeaderboard() {
     const base = [...PLAYERS].map(p => ({
       p,
       gross: scores[p.id].reduce((s, v) => s + v, 0),
+      thru: scores[p.id].filter(v => v > 0).length,
       ph: getPlayingHandicap(p.id),
     })).map(r => ({ ...r, net: r.gross > 0 ? r.gross - r.ph : 0 }));
 
+    const thruLabel = r => r.thru > 0 && r.thru < 18
+      ? `<span style="font-size:9px;color:rgba(245,240,232,0.3);margin-left:4px;">thru ${r.thru}</span>`
+      : '';
+
     if (activeGames.gross) {
-      const rows = [...base].sort((a, b) => (a.gross || 999) - (b.gross || 999))
-        .map(r => ({ name: r.p.name, color: r.p.color, val: r.gross || '—', hl: r.gross ? 'var(--cream)' : 'rgba(245,240,232,0.2)' }));
+      const rows = [...base]
+        .sort((a, b) => (b.thru - a.thru) || ((a.gross || 999) - (b.gross || 999)))
+        .map(r => ({ name: r.p.name, color: r.p.color, val: r.gross ? `${r.gross}${thruLabel(r)}` : '—', hl: r.gross ? 'var(--cream)' : 'rgba(245,240,232,0.2)' }));
       html += lbCard('📊 Gross', rows);
     }
     if (activeGames.net) {
-      const rows = [...base].sort((a, b) => (a.net || 999) - (b.net || 999))
-        .map(r => ({ name: r.p.name, color: r.p.color, val: r.gross ? r.net : '—', hl: r.gross ? 'var(--green-bright)' : 'rgba(245,240,232,0.2)' }));
+      const rows = [...base]
+        .sort((a, b) => (b.thru - a.thru) || ((a.net || 999) - (b.net || 999)))
+        .map(r => ({ name: r.p.name, color: r.p.color, val: r.gross ? `${r.net}${thruLabel(r)}` : '—', hl: r.gross ? 'var(--green-bright)' : 'rgba(245,240,232,0.2)' }));
       html += lbCard('🏅 Net', rows);
     }
   }
@@ -2180,6 +2188,7 @@ function applyTee(tee, btn) {
       base64ToBlob(lastScanImage.base64, lastScanImage.mimeType), lastScanImage.mimeType
     );
   }
+  updateHeader();
   showCourseConfirm();
 }
 
@@ -2254,13 +2263,15 @@ async function saveScorecardToCloud(course, tee, tees, imageBlob, imageMime) {
 function updateHeader() {
   const h1 = document.querySelector('.app-header h1');
   if (h1) h1.textContent = courseName || 'Golf Scorecard';
+  const parEl = document.getElementById('course-par-display');
+  if (parEl) parEl.textContent = 'Par ' + pars.reduce((a, b) => a + b, 0);
 }
 
 // ══════════════════════════════════════════════
 // INIT — restore saved state if available
 loadState();
-renderSetup();
 updateHeader();
+showPage(gameActive ? 'score' : 'setup');
 
 // ══════════════════════════════════════════════
 // PWA — register service worker for offline play
