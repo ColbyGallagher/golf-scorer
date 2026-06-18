@@ -285,9 +285,16 @@
       <div class="card">
         <div class="card-title">📋 Confirm Holes</div>
         <div id="course-confirm-table"></div>
+        <div style="margin-top:12px;padding:10px 12px;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);border-radius:8px;">
+          <div style="font-size:12px;color:#f5a623;margin-bottom:8px;">⚠️ It's important to check that the pars and stroke indices are correct. Errors here will affect all scoring and handicap calculations.</div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="holes-confirmed-check" onchange="holesConfirmed=this.checked;updateStep1NextBtn()" style="width:16px;height:16px;accent-color:var(--green-bright);cursor:pointer;">
+            <span style="font-size:12px;color:var(--cream);">Pars and stroke indices are correct</span>
+          </label>
+        </div>
       </div>
     </div>
-    <button class="btn-primary" style="width:100%;" onclick="showSetupStep(2)">Next — Game Format →</button>
+    <button id="step1-next-btn" class="btn-primary" style="width:100%;opacity:0.4;cursor:not-allowed;" onclick="showSetupStep(2)" disabled>Next — Game Format →</button>
   </div>
 
   <!-- ── Step 2: Game Format ── -->
@@ -387,7 +394,7 @@
     <div style="font-size:10px;color:rgba(245,240,232,0.3);margin-top:4px;margin-bottom:10px;" id="sc-progress-label">0 / 18 holes played</div>
     <div class="scorecard-wrap"><table class="sc-table" id="scorecard-table"></table></div>
   </div>
-  <div id="three-putt-summary"></div>
+  <div id="card-leaderboard"></div>
 </div>
 
 <!-- ══ TEAMS PAGE ══ -->
@@ -405,6 +412,7 @@
     <div class="card-title">💨 Long Drive · Par 5s</div>
     <div id="ld-list"></div>
   </div>
+  <div id="comps-extra"></div>
 </div>
 
 <!-- ══ HISTORY PAGE ══ -->
@@ -930,7 +938,9 @@ let scores       = {};
 let compWinners  = {};
 let currentHole  = 0;
 let courseName   = 'Shortland Waters';
-let selectedTee  = 'yellow';
+let selectedTee    = 'yellow';
+let teeApplied     = false;
+let holesConfirmed = false;
 let courseRating    = 71.0;
 let slopeRating     = 113;
 let teamAssignments = { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' };
@@ -1009,7 +1019,17 @@ function teamTotals() {
 // ══════════════════════════════════════════════
 // SETUP PAGE — WIZARD
 // ══════════════════════════════════════════════
+function updateStep1NextBtn() {
+  const btn = document.getElementById('step1-next-btn');
+  if (!btn) return;
+  const ready = teeApplied && holesConfirmed;
+  btn.disabled      = !ready;
+  btn.style.opacity = ready ? '1' : '0.4';
+  btn.style.cursor  = ready ? 'pointer' : 'not-allowed';
+}
+
 function showSetupStep(n) {
+  if (n === 2 && !(teeApplied && holesConfirmed)) return;
   setupStep = n;
   [1,2,3].forEach(i => {
     const el = document.getElementById('setup-step-' + i);
@@ -1724,82 +1744,119 @@ function renderScorecard() {
       ${playerRows}
     </tbody>`;
 
-  const tpEl = document.getElementById('three-putt-summary');
-  if (tpEl) {
-    const anyPutts = PLAYERS.some(p => threePutts[p.id] && threePutts[p.id].some(Boolean));
-    tpEl.innerHTML = anyPutts ? `<div class="card" style="margin-top:12px;">
-      <div class="card-title">⛳ 3-Putt Summary</div>
-      ${PLAYERS.map(p => {
-        const tp = threePutts[p.id] || Array(18).fill(false);
-        const total = tp.filter(Boolean).length;
-        const frontCt = tp.slice(0,9).filter(Boolean).length;
-        const backCt  = tp.slice(9).filter(Boolean).length;
-        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(245,240,232,0.05);">
-          <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
-          <span style="flex:1;font-size:12px;font-weight:500;">${p.name}</span>
-          <span style="font-size:10px;color:rgba(245,240,232,0.4);">F:${frontCt} · B:${backCt}</span>
-          <span style="font-size:14px;font-weight:700;min-width:20px;text-align:right;color:${total>0?'#e07070':'rgba(245,240,232,0.25)'};">${total}</span>
-        </div>`;
-      }).join('')}
-    </div>` : '';
+  renderCardLeaderboard();
+}
+
+function renderCardLeaderboard() {
+  const el = document.getElementById('card-leaderboard');
+  if (!el) return;
+
+  function lbCard(title, rows) {
+    return `<div class="card" style="margin-top:12px;">
+      <div class="card-title">${title}</div>
+      ${rows.map((r, i) => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;${i < rows.length-1 ? 'border-bottom:1px solid rgba(245,240,232,0.05);' : ''}">
+        <span style="font-size:10px;color:rgba(245,240,232,0.25);width:14px;text-align:right;">${i+1}</span>
+        <div style="width:7px;height:7px;border-radius:50%;background:${r.color};flex-shrink:0;"></div>
+        <span style="flex:1;font-size:13px;font-weight:500;">${r.name}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.hl};">${r.val}</span>
+      </div>`).join('')}
+    </div>`;
   }
+
+  const sfRows = [...PLAYERS]
+    .map(p => ({ p, pts: totalStableford(p.id) }))
+    .sort((a, b) => b.pts - a.pts)
+    .map(r => ({ name: r.p.name, color: r.p.color, val: r.pts + ' pts', hl: 'var(--gold)' }));
+
+  let html = lbCard('🏆 Stableford', sfRows);
+
+  if (activeGames.gross || activeGames.net) {
+    const base = [...PLAYERS].map(p => ({
+      p,
+      gross: scores[p.id].reduce((s, v) => s + v, 0),
+      ph: getPlayingHandicap(p.id),
+    })).map(r => ({ ...r, net: r.gross > 0 ? r.gross - r.ph : 0 }));
+
+    if (activeGames.gross) {
+      const rows = [...base].sort((a, b) => (a.gross || 999) - (b.gross || 999))
+        .map(r => ({ name: r.p.name, color: r.p.color, val: r.gross || '—', hl: r.gross ? 'var(--cream)' : 'rgba(245,240,232,0.2)' }));
+      html += lbCard('📊 Gross', rows);
+    }
+    if (activeGames.net) {
+      const rows = [...base].sort((a, b) => (a.net || 999) - (b.net || 999))
+        .map(r => ({ name: r.p.name, color: r.p.color, val: r.gross ? r.net : '—', hl: r.gross ? 'var(--green-bright)' : 'rgba(245,240,232,0.2)' }));
+      html += lbCard('🏅 Net', rows);
+    }
+  }
+
+  el.innerHTML = html;
 }
 
 // ══════════════════════════════════════════════
 // TEAMS PAGE
 // ══════════════════════════════════════════════
 function renderTeams() {
-  const {totA, totB, mult} = teamTotals();
-  const teamAPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'A');
-  const teamBPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'B');
-  const teamAName = teamAPlayers.map(p => p.name).join(' & ') || 'Team A';
-  const teamBName = teamBPlayers.map(p => p.name).join(' & ') || 'Team B';
+  const hasTeamFormat = activeGames.teamMultiplier || activeGames.nassau;
 
-  const diff = totA - totB;
-  let resultHTML = '';
-  if (diff>0) resultHTML=`<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-a);">${teamAName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`;
-  else if (diff<0) resultHTML=`<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-b);">${teamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`;
-  else resultHTML=`<div class="result-banner" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);"><div class="result-label">Status</div><div class="result-text" style="color:var(--gold);">All Square</div></div>`;
+  let teamHTML = '';
+  if (hasTeamFormat) {
+    const {totA, totB, mult} = teamTotals();
+    const teamAPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'A');
+    const teamBPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'B');
+    const teamAName = teamAPlayers.map(p => p.name).join(' & ') || 'Team A';
+    const teamBName = teamBPlayers.map(p => p.name).join(' & ') || 'Team B';
 
-  let multiplierHTML = '';
-  if (activeGames.teamMultiplier) {
-    let holeRows='';
-    for (let h=0;h<18;h++) {
-      if (!PLAYERS.some(p=>scores[p.id][h]>0)) continue;
-      const {sumA,sumB,product}=teamMultiplierHole(h);
-      holeRows+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
-        <span style="font-family:'DM Mono',monospace;color:var(--gold);min-width:28px;">H${h+1}</span>
-        <span style="color:var(--team-a);min-width:26px;font-family:'DM Mono',monospace;">${sumA}pt</span>
-        <span style="color:rgba(245,240,232,0.3)">×</span>
-        <span style="color:var(--team-b);min-width:26px;font-family:'DM Mono',monospace;">${sumB}pt</span>
-        <span style="color:rgba(245,240,232,0.3)">=</span>
-        <span style="font-family:'DM Mono',monospace;font-weight:700;color:${product>0?'var(--cream)':'rgba(245,240,232,0.25)'};">${product}</span>
+    const diff = totA - totB;
+    let resultHTML = '';
+    if (diff>0) resultHTML=`<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-a);">${teamAName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`;
+    else if (diff<0) resultHTML=`<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-b);">${teamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`;
+    else resultHTML=`<div class="result-banner" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);"><div class="result-label">Status</div><div class="result-text" style="color:var(--gold);">All Square</div></div>`;
+
+    let multiplierHTML = '';
+    if (activeGames.teamMultiplier) {
+      let holeRows='';
+      for (let h=0;h<18;h++) {
+        if (!PLAYERS.some(p=>scores[p.id][h]>0)) continue;
+        const {sumA,sumB,product}=teamMultiplierHole(h);
+        holeRows+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
+          <span style="font-family:'DM Mono',monospace;color:var(--gold);min-width:28px;">H${h+1}</span>
+          <span style="color:var(--team-a);min-width:26px;font-family:'DM Mono',monospace;">${sumA}pt</span>
+          <span style="color:rgba(245,240,232,0.3)">×</span>
+          <span style="color:var(--team-b);min-width:26px;font-family:'DM Mono',monospace;">${sumB}pt</span>
+          <span style="color:rgba(245,240,232,0.3)">=</span>
+          <span style="font-family:'DM Mono',monospace;font-weight:700;color:${product>0?'var(--cream)':'rgba(245,240,232,0.25)'};">${product}</span>
+        </div>`;
+      }
+      multiplierHTML = `<div class="card">
+        <div class="card-title">✖️ Multiplier Breakdown</div>
+        <div class="team-score-row" style="margin-bottom:7px;"><span class="team-score-label">Running Total</span><span class="team-score-val" style="color:var(--gold);">${mult}</span></div>
+        <div style="font-size:10px;color:rgba(245,240,232,0.35);margin-bottom:7px;">Combined team Stableford per hole × each other</div>
+        ${holeRows||'<div class="empty-state">No holes scored yet</div>'}
       </div>`;
     }
-    multiplierHTML = `<div class="card">
-      <div class="card-title">✖️ Multiplier Breakdown</div>
-      <div class="team-score-row" style="margin-bottom:7px;"><span class="team-score-label">Running Total</span><span class="team-score-val" style="color:var(--gold);">${mult}</span></div>
-      <div style="font-size:10px;color:rgba(245,240,232,0.35);margin-bottom:7px;">Combined team Stableford per hole × each other</div>
-      ${holeRows||'<div class="empty-state">No holes scored yet</div>'}
-    </div>`;
+
+    teamHTML = resultHTML +
+      `<div class="team-card team-a-card">
+        <div class="team-name">${teamAName}</div>
+        <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-a);">${totA} pts</span></div>
+        ${teamAPlayers.map(p=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${p.name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(p.id)} pts</span></div>`).join('')}
+      </div>
+      <div class="team-card team-b-card">
+        <div class="team-name">${teamBName}</div>
+        <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-b);">${totB} pts</span></div>
+        ${teamBPlayers.map(p=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${p.name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(p.id)} pts</span></div>`).join('')}
+      </div>` +
+      multiplierHTML;
   }
 
-  document.getElementById('teams-content').innerHTML = resultHTML +
-    `<div class="team-card team-a-card">
-      <div class="team-name">${teamAName}</div>
-      <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-a);">${totA} pts</span></div>
-      ${teamAPlayers.map(p=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${p.name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(p.id)} pts</span></div>`).join('')}
-    </div>
-    <div class="team-card team-b-card">
-      <div class="team-name">${teamBName}</div>
-      <div class="team-score-row"><span class="team-score-label">Combined Stableford Total</span><span class="team-score-val" style="color:var(--team-b);">${totB} pts</span></div>
-      ${teamBPlayers.map(p=>`<div class="team-score-row" style="margin-top:3px;"><span style="font-size:11px;color:rgba(245,240,232,0.4);">${p.name}</span><span style="font-size:11px;font-family:'DM Mono',monospace;">${totalStableford(p.id)} pts</span></div>`).join('')}
-    </div>` +
-    multiplierHTML +
+  const extraContent =
     (activeGames.skins  ? renderSkinsSection()  : '') +
     (activeGames.nassau ? renderNassauSection() : '') +
-    (activeGames.wolf   ? renderWolfSection()   : '') +
     (activeGames.gross || activeGames.net ? renderGrossNetSection() : '');
+
+  const content = teamHTML + extraContent;
+  document.getElementById('teams-content').innerHTML = content ||
+    `<div class="empty-state" style="padding:32px 20px;text-align:center;color:rgba(245,240,232,0.35);font-size:13px;">No team formats active for this round.</div>`;
 }
 
 // ══════════════════════════════════════════════
@@ -1825,6 +1882,33 @@ function renderComps() {
   document.getElementById('ld-list').innerHTML = par5.length ?
     par5.map(h=>`<div class="comp-row"><span class="comp-hole">H${h+1}</span><span class="comp-type">💨 Long Drive</span><span class="comp-winner">${winnerName(compWinners[h].ld)}</span></div>`).join('') :
     '<div class="empty-state">No par 5s</div>';
+
+  const extraEl = document.getElementById('comps-extra');
+  if (!extraEl) return;
+  let extraHtml = '';
+
+  if (activeGames.wolf) extraHtml += renderWolfSection();
+
+  const anyPutts = PLAYERS.some(p => threePutts[p.id] && threePutts[p.id].some(Boolean));
+  if (anyPutts) {
+    extraHtml += `<div class="card">
+      <div class="card-title">⛳ 3-Putt Summary</div>
+      ${PLAYERS.map(p => {
+        const tp = threePutts[p.id] || Array(18).fill(false);
+        const total = tp.filter(Boolean).length;
+        const frontCt = tp.slice(0,9).filter(Boolean).length;
+        const backCt  = tp.slice(9).filter(Boolean).length;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(245,240,232,0.05);">
+          <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
+          <span style="flex:1;font-size:12px;font-weight:500;">${p.name}</span>
+          <span style="font-size:10px;color:rgba(245,240,232,0.4);">F:${frontCt} · B:${backCt}</span>
+          <span style="font-size:14px;font-weight:700;min-width:20px;text-align:right;color:${total>0?'#e07070':'rgba(245,240,232,0.25)'};">${total}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  extraEl.innerHTML = extraHtml;
 }
 
 // ══════════════════════════════════════════════
@@ -1934,6 +2018,13 @@ function selectSavedCourse(idx) {
   lastScanResult = { courseName: course.course_name, tees: course.tees };
   lastScanSaved  = true;
   lastScanImage  = null;
+  teeApplied     = false;
+  holesConfirmed = false;
+  const confirmSec2 = document.getElementById('course-confirm-section');
+  if (confirmSec2) confirmSec2.style.display = 'none';
+  const chk2 = document.getElementById('holes-confirmed-check');
+  if (chk2) chk2.checked = false;
+  updateStep1NextBtn();
 
   const statusEl   = document.getElementById('scan-status');
   const previewWrap = document.getElementById('scan-preview-wrap');
@@ -1998,6 +2089,13 @@ function handleScorecardImage(event) {
   lastScanResult = null;
   lastScanImage  = null;
   lastScanSaved  = false;
+  teeApplied     = false;
+  holesConfirmed = false;
+  const confirmSec = document.getElementById('course-confirm-section');
+  if (confirmSec) confirmSec.style.display = 'none';
+  const chk = document.getElementById('holes-confirmed-check');
+  if (chk) chk.checked = false;
+  updateStep1NextBtn();
   const reader = new FileReader();
   reader.onload = async (e) => {
     const dataUrl = await normaliseImage(e.target.result);
@@ -2059,7 +2157,12 @@ function applyTee(tee, btn) {
     if (h.par >= 3 && h.par <= 5) pars[i] = h.par;
     if (h.index >= 1 && h.index <= 18) indices[i] = h.index;
   });
-  selectedTee = tee;
+  selectedTee    = tee;
+  teeApplied     = true;
+  holesConfirmed = false;
+  const prevCheck = document.getElementById('holes-confirmed-check');
+  if (prevCheck) prevCheck.checked = false;
+  updateStep1NextBtn();
   saveState();
   document.querySelectorAll('#tee-options .tee-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
