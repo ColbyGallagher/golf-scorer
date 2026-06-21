@@ -1,1 +1,10 @@
 .claude/
+node_modules/
+next-app/node_modules/
+next-app/.next/
+next-app/out/
+next-app/.env.local
+next-app/.env*.local
+worker/.wrangler/
+next-plan.md
+tasks.md
