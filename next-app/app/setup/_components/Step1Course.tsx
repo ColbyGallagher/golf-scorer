@@ -12,6 +12,29 @@ interface Props {
   onNext: () => void;
 }
 
+const CLAUDE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+
+async function normalizeImage(dataUrl: string, originalType: string): Promise<{ base64: string; mimeType: string }> {
+  if (CLAUDE_IMAGE_TYPES.has(originalType)) {
+    return { base64: dataUrl.split(',')[1], mimeType: originalType };
+  }
+  // Convert unsupported formats (e.g. HEIC/HEIF from iPhone) to JPEG via canvas
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const jpeg = canvas.toDataURL('image/jpeg', 0.92);
+      resolve({ base64: jpeg.split(',')[1], mimeType: 'image/jpeg' });
+    };
+    img.onerror = () => reject(new Error('Could not decode image — try a JPEG or PNG photo'));
+    img.src = dataUrl;
+  });
+}
+
 const TEE_STYLES: Record<string, { bg: string; border: string; color: string }> = {
   yellow: { bg: 'rgba(255,215,0,0.18)',   border: 'rgba(255,215,0,0.6)',    color: '#ffe566' },
   white:  { bg: 'rgba(255,255,255,0.12)', border: 'rgba(255,255,255,0.5)',  color: '#f5f0e8' },
@@ -107,16 +130,14 @@ export default function Step1Course({ onNext }: Props) {
 
     try {
       const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]); // strip data URL prefix
-        };
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
 
-      const result = await scanScorecardImage(base64, file.type);
+      const { base64, mimeType } = await normalizeImage(dataUrl, file.type);
+      const result = await scanScorecardImage(base64, mimeType);
       const validTees = Object.fromEntries(
         Object.entries(result.tees).filter(([, holes]) => holes.length === 18)
       );
