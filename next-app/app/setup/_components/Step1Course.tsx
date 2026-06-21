@@ -12,25 +12,24 @@ interface Props {
   onNext: () => void;
 }
 
-const CLAUDE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+// Always resize + convert to JPEG so we never exceed Anthropic's 5MB image limit
+// (iPhone photos can be 4–8 MB; HEIC has no native browser support)
+const MAX_PX = 2000;
 
-async function normalizeImage(dataUrl: string, originalType: string): Promise<{ base64: string; mimeType: string }> {
-  if (CLAUDE_IMAGE_TYPES.has(originalType)) {
-    return { base64: dataUrl.split(',')[1], mimeType: originalType };
-  }
-  // Convert unsupported formats (e.g. HEIC/HEIF from iPhone) to JPEG via canvas
+async function normalizeImage(dataUrl: string): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
+      const scale = Math.min(1, MAX_PX / Math.max(img.naturalWidth, img.naturalHeight));
       const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
       const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0);
-      const jpeg = canvas.toDataURL('image/jpeg', 0.92);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const jpeg = canvas.toDataURL('image/jpeg', 0.88);
       resolve({ base64: jpeg.split(',')[1], mimeType: 'image/jpeg' });
     };
-    img.onerror = () => reject(new Error('Could not decode image — try a JPEG or PNG photo'));
+    img.onerror = () => reject(new Error('Could not read image — try a JPEG or PNG photo'));
     img.src = dataUrl;
   });
 }
@@ -136,7 +135,7 @@ export default function Step1Course({ onNext }: Props) {
         reader.readAsDataURL(file);
       });
 
-      const { base64, mimeType } = await normalizeImage(dataUrl, file.type);
+      const { base64, mimeType } = await normalizeImage(dataUrl);
       const result = await scanScorecardImage(base64, mimeType);
       const validTees = Object.fromEntries(
         Object.entries(result.tees).filter(([, holes]) => holes.length === 18)
