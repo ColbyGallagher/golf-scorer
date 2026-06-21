@@ -1,4 +1,4 @@
-const CACHE = 'golf-scorer-v1';
+const CACHE = 'golf-scorer-v2';
 
 const APP_SHELL = [
   '/',
@@ -45,7 +45,8 @@ self.addEventListener('fetch', event => {
       caches.match(event.request).then(cached =>
         cached ?? fetch(event.request).then(response => {
           if (response.ok) {
-            caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
+            const clone = response.clone();
+            caches.open(CACHE).then(cache => cache.put(event.request, clone));
           }
           return response;
         })
@@ -60,7 +61,8 @@ self.addEventListener('fetch', event => {
       const networkFetch = fetch(event.request)
         .then(response => {
           if (response.ok) {
-            caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
+            const clone = response.clone();
+            caches.open(CACHE).then(cache => cache.put(event.request, clone));
           }
           return response;
         })
