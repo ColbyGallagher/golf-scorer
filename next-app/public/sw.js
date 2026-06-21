@@ -1,15 +1,18 @@
 const CACHE = 'golf-scorer-v2';
 
+// Derive basePath from the SW's own URL (e.g. /golf-scorer/sw.js → /golf-scorer)
+const BASE = self.location.pathname.replace(/\/sw\.js$/, '');
+
 const APP_SHELL = [
-  '/',
-  '/setup',
-  '/game',
-  '/card',
-  '/teams',
-  '/comps',
-  '/history',
-  '/manifest.webmanifest',
-  '/icon.svg',
+  `${BASE}/`,
+  `${BASE}/setup`,
+  `${BASE}/game`,
+  `${BASE}/card`,
+  `${BASE}/teams`,
+  `${BASE}/comps`,
+  `${BASE}/history`,
+  `${BASE}/manifest.webmanifest`,
+  `${BASE}/icon.svg`,
 ];
 
 self.addEventListener('install', event => {
@@ -68,7 +71,7 @@ self.addEventListener('fetch', event => {
         })
         .catch(() => null);
 
-      return cached ?? networkFetch ?? caches.match('/');
+      return cached ?? networkFetch ?? caches.match(`${BASE}/`);
     })
   );
 });

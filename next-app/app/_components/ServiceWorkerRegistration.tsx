@@ -5,7 +5,10 @@ import { useEffect } from 'react';
 export default function ServiceWorkerRegistration() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(console.error);
+      const base = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+      navigator.serviceWorker
+        .register(`${base}/sw.js`, { scope: `${base}/` })
+        .catch(console.error);
     }
   }, []);
   return null;
