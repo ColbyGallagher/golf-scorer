@@ -20,12 +20,11 @@ interface GameRow {
 const GAME_ROWS: GameRow[] = [
   { emoji: '🏌️', title: 'Individual Stableford', desc: 'All players score Stableford points per hole', key: null, locked: true },
   { emoji: '✖️', title: 'Team Multiplier', desc: 'Team totals × each other per hole', key: 'teamMultiplier' },
-  { emoji: '🃏', title: 'Skins', desc: 'Hole-by-hole winner takes the skin; ties carry over', key: 'skins' },
-  { emoji: '🏆', title: 'Nassau', desc: 'Team A vs B — front 9, back 9 and overall', key: 'nassau' },
   { emoji: '🐺', title: 'Wolf', desc: 'Rotating wolf — blind, alone, or pick a partner each hole', key: 'wolf' },
   { emoji: '📊', title: 'Gross', desc: 'Total shots — traditional stroke play ranking', key: 'gross' },
   { emoji: '🏅', title: 'Net', desc: 'Gross minus playing handicap', key: 'net' },
-  { emoji: '🎯', title: 'CTP & Long Drive', desc: 'Closest to pin (par 3) · Long drive (par 5)', key: 'ctpLd' },
+  { emoji: '📍', title: 'Closest to Pin', desc: 'Closest to the pin on par 3s', key: 'ctp' },
+  { emoji: '💨', title: 'Long Drive', desc: 'Longest drive on par 5s', key: 'longDrive' },
 ];
 
 export default function Step2GameFormat({ onBack, onNext }: Props) {

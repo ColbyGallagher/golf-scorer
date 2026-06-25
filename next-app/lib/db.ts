@@ -88,6 +88,16 @@ export async function saveRoundToCloud(entry: HistoryRound): Promise<'saved' | '
   }
 }
 
+export async function deleteRoundFromCloud(id: number): Promise<'deleted' | 'error'> {
+  try {
+    const { error } = await supabase.from('rounds').delete().eq('id', id);
+    if (error) throw error;
+    return 'deleted';
+  } catch {
+    return 'error';
+  }
+}
+
 export async function syncRoundsFromCloud(local: HistoryRound[]): Promise<HistoryRound[] | null> {
   try {
     const { data, error } = await supabase
@@ -109,6 +119,41 @@ export async function syncRoundsFromCloud(local: HistoryRound[]): Promise<Histor
 }
 
 let cachedCourses: SavedCourse[] | null = null;
+
+export function invalidateCourseCache() { cachedCourses = null; }
+
+export async function fetchAllCourses(): Promise<SavedCourse[]> {
+  try {
+    const { data, error } = await supabase
+      .from('scorecards')
+      .select('id, course_name, tees, scanned_at')
+      .order('scanned_at', { ascending: false });
+    if (error || !data) return [];
+    const seen = new Set<string>();
+    return (data as SavedCourse[]).filter(c => {
+      const key = (c.course_name || '').trim().toLowerCase();
+      if (!key || key === 'unknown' || !c.tees || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  } catch { return []; }
+}
+
+export async function updateScorecard(
+  id: string,
+  courseName: string,
+  tees: Record<string, TeeHole[]>,
+): Promise<'saved' | 'error'> {
+  try {
+    const { error } = await supabase
+      .from('scorecards')
+      .update({ course_name: courseName, tees })
+      .eq('id', id);
+    if (error) throw error;
+    cachedCourses = null;
+    return 'saved';
+  } catch { return 'error'; }
+}
 
 export async function fetchSavedCourses(): Promise<SavedCourse[]> {
   if (cachedCourses !== null) return cachedCourses;

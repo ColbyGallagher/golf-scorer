@@ -4,11 +4,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useGameStore } from '../../store/gameStore';
 
 const TABS = [
-  { label: '🏌️ Score',   path: '/game'    },
-  { label: '📋 Card',    path: '/card'    },
-  { label: '🏆 Teams',   path: '/teams'   },
-  { label: '🎯 Comps',   path: '/comps'   },
-  { label: '📚 History', path: '/history' },
+  { label: '🏌️ Score', path: '/game'  },
+  { label: '📋 Card',  path: '/card'  },
+  { label: '🏆 Teams', path: '/teams' },
+  { label: '🎯 Comps', path: '/comps' },
 ];
 
 export default function GameNav() {

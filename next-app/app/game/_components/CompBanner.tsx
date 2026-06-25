@@ -14,7 +14,8 @@ export default function CompBanner({ hole }: Props) {
   const setCompWinner = useGameStore(s => s.setCompWinner);
 
   const par = pars[hole];
-  if (!activeGames.ctpLd) return null;
+  if (par === 3 && !activeGames.ctp) return null;
+  if (par === 5 && !activeGames.longDrive) return null;
   if (par !== 3 && par !== 5) return null;
 
   const isCtp = par === 3;

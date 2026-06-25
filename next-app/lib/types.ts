@@ -28,7 +28,8 @@ export interface ActiveGames {
   teamMultiplier: boolean;
   skins: boolean;
   nassau: boolean;
-  ctpLd: boolean;
+  ctp: boolean;
+  longDrive: boolean;
   wolf: boolean;
   gross: boolean;
   net: boolean;

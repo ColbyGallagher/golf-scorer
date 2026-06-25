@@ -34,8 +34,8 @@ export default function CompsPage() {
         {/* CTP card */}
         <div className="card">
           <div className="card-title">📍 Closest to the Pin · Par 3s</div>
-          {!activeGames.ctpLd ? (
-            <div className="empty-state">Disabled — turn on CTP &amp; Long Drive in Setup → Game Format</div>
+          {!activeGames.ctp ? (
+            <div className="empty-state">Disabled — turn on Closest to Pin in Setup → Game Format</div>
           ) : par3s.length === 0 ? (
             <div className="empty-state">No par 3s</div>
           ) : (
@@ -52,8 +52,8 @@ export default function CompsPage() {
         {/* Long Drive card */}
         <div className="card">
           <div className="card-title">💨 Long Drive · Par 5s</div>
-          {!activeGames.ctpLd ? (
-            <div className="empty-state">Disabled — turn on CTP &amp; Long Drive in Setup → Game Format</div>
+          {!activeGames.longDrive ? (
+            <div className="empty-state">Disabled — turn on Long Drive in Setup → Game Format</div>
           ) : par5s.length === 0 ? (
             <div className="empty-state">No par 5s</div>
           ) : (

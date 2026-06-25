@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { stablefordPoints } from '../../lib/scoring';
+import { stablefordPoints, calcSkins, calcWolf, calcNassau, getPlayingHandicap } from '../../lib/scoring';
 import type { HistoryRound } from '../../lib/db';
-import { saveRoundToCloud, syncRoundsFromCloud } from '../../lib/db';
+import { saveRoundToCloud, syncRoundsFromCloud, deleteRoundFromCloud } from '../../lib/db';
 import type { PlayerId } from '../../lib/types';
-import GameNav from '../_components/GameNav';
 
 function loadHistory(): HistoryRound[] {
   if (typeof window === 'undefined') return [];
@@ -31,8 +31,9 @@ function roundStableford(r: HistoryRound, pid: string): number {
 export default function HistoryPage() {
   const [rounds,   setRounds]   = useState<HistoryRound[]>([]);
   const [detail,   setDetail]   = useState<HistoryRound | null>(null);
-  const [cloudMsg, setCloudMsg] = useState('');
-  const [syncing,  setSyncing]  = useState(false);
+  const [cloudMsg,       setCloudMsg]       = useState('');
+  const [syncing,        setSyncing]        = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const gameActive      = useGameStore(s => s.gameActive);
   const scores          = useGameStore(s => s.scores);
@@ -50,7 +51,11 @@ export default function HistoryPage() {
   const selectedTee     = useGameStore(s => s.selectedTee);
   const threePutts      = useGameStore(s => s.threePutts);
 
-  useEffect(() => { setRounds(loadHistory()); }, []);
+  useEffect(() => {
+    setRounds(loadHistory());
+    syncCloud();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const holesPlayed = Array.from({ length: 18 }, (_, h) =>
     PLAYERS.some(p => scores[p.id as PlayerId][h] > 0),
@@ -111,15 +116,20 @@ export default function HistoryPage() {
     setTimeout(() => setCloudMsg(''), 3000);
   }
 
-  function deleteRound(id: number) {
+  async function deleteRound(id: number) {
     const next = rounds.filter(r => r.id !== id);
     saveHistoryLocal(next);
     setRounds(next);
+    setConfirmDeleteId(null);
+    await deleteRoundFromCloud(id);
   }
 
   return (
     <>
-      <GameNav />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px 0', maxWidth: 480, margin: '0 auto' }}>
+        <Link href="/setup" style={{ color: 'var(--gold)', fontSize: 18, textDecoration: 'none', lineHeight: 1 }}>←</Link>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: 'var(--gold)', margin: 0 }}>History</h1>
+      </div>
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '14px 14px 40px' }}>
         {gameActive && holesPlayed > 0 ? (
           <button className="save-round-btn" onClick={saveRound}>
@@ -154,53 +164,218 @@ export default function HistoryPage() {
             No saved rounds yet.<br />Finish a round and tap &quot;Save Round&quot; above.
           </div>
         ) : (
-          rounds.map(r => {
-            const playerScores = PLAYERS.map(p => ({ p, pts: roundStableford(r, p.id) }));
-            const ta           = r.teamAssignments || {};
-            const totA         = playerScores.filter(x => ta[x.p.id] === 'A').reduce((s, x) => s + x.pts, 0);
-            const totB         = playerScores.filter(x => ta[x.p.id] === 'B').reduce((s, x) => s + x.pts, 0);
-            const teamAName    = PLAYERS.filter(p => ta[p.id] === 'A').map(p => p.name).join(' & ') || 'Team A';
-            const teamBName    = PLAYERS.filter(p => ta[p.id] === 'B').map(p => p.name).join(' & ') || 'Team B';
-            const winner       = totA > totB ? `${teamAName} 🏆` : totB > totA ? `${teamBName} 🏆` : 'All Square';
-            const winColor     = totA === totB ? 'var(--gold)' : totA > totB ? 'var(--team-a)' : 'var(--team-b)';
-
-            return (
-              <div key={r.id} className="history-round" onClick={() => setDetail(r)}>
-                <div className="history-round-header">
-                  <div>
-                    <div className="history-round-date">{r.label}</div>
-                    <div className="history-round-holes">{formatDate(r.date)} · {r.holesPlayed} holes</div>
-                  </div>
-                  <button
-                    className="history-delete-btn"
-                    onClick={e => { e.stopPropagation(); deleteRound(r.id); }}
-                  >
-                    🗑
-                  </button>
-                </div>
-                <div className="history-scores">
-                  {playerScores.map(({ p, pts }) => (
-                    <div key={p.id} className="history-player-score">
-                      <div className="history-player-name">
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
-                        {p.name}
-                      </div>
-                      <div className="history-player-pts">{pts}pts</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="history-team-result">
-                  <span>A: <strong style={{ color: 'var(--team-a)' }}>{totA}pts</strong> · B: <strong style={{ color: 'var(--team-b)' }}>{totB}pts</strong></span>
-                  <span style={{ color: winColor }}>{winner}</span>
-                </div>
-              </div>
-            );
-          })
+          rounds.map(r => (
+            <RoundCard
+              key={r.id}
+              r={r}
+              onOpen={() => setDetail(r)}
+              confirmDeleteId={confirmDeleteId}
+              setConfirmDeleteId={setConfirmDeleteId}
+              onDelete={deleteRound}
+            />
+          ))
         )}
       </div>
 
       {detail && <HistoryDetail round={detail} onClose={() => setDetail(null)} />}
     </>
+  );
+}
+
+function teamWinLabel(a: number, b: number) {
+  return a > b ? 'A ↑' : b > a ? 'B ↑' : '=';
+}
+function teamWinColor(a: number, b: number) {
+  return a > b ? 'var(--team-a)' : b > a ? 'var(--team-b)' : 'var(--gold)';
+}
+
+function RoundCard({
+  r, onOpen, confirmDeleteId, setConfirmDeleteId, onDelete,
+}: {
+  r: HistoryRound;
+  onOpen: () => void;
+  confirmDeleteId: number | null;
+  setConfirmDeleteId: (id: number | null) => void;
+  onDelete: (id: number) => void;
+}) {
+  const ag = r.activeGames || {};
+  const ta = (r.teamAssignments || {}) as Record<string, 'A' | 'B'>;
+
+  const teamAName = PLAYERS.filter(p => ta[p.id] === 'A').map(p => p.name).join(' & ') || 'Team A';
+  const teamBName = PLAYERS.filter(p => ta[p.id] === 'B').map(p => p.name).join(' & ') || 'Team B';
+
+  const stbl = PLAYERS.map(p => ({ p, pts: roundStableford(r, p.id) }));
+  const totA = stbl.filter(x => ta[x.p.id] === 'A').reduce((s, x) => s + x.pts, 0);
+  const totB = stbl.filter(x => ta[x.p.id] === 'B').reduce((s, x) => s + x.pts, 0);
+
+  const grossMap = Object.fromEntries(
+    PLAYERS.map(p => [p.id, r.scores[p.id]?.reduce((s, v) => s + (v > 0 ? v : 0), 0) ?? 0])
+  );
+  const netMap = Object.fromEntries(
+    PLAYERS.map(p => {
+      const g = grossMap[p.id];
+      if (!g) return [p.id, 0];
+      const ph = getPlayingHandicap(p.id, r.handicaps, r.courseRating ?? 71, r.slopeRating ?? 113, r.pars);
+      return [p.id, g - ph];
+    })
+  );
+
+  const skinMap: Record<string, number> = {};
+  if (ag.skins) {
+    for (const s of calcSkins(PLAYERS, r.scores, r.pars, r.handicaps, r.indices)) {
+      if (s.winner) skinMap[s.winner.id] = (skinMap[s.winner.id] || 0) + s.value;
+    }
+  }
+
+  const wolfMap: Record<string, number> = {};
+  if (ag.wolf && r.wolfOrder?.length) {
+    for (const wh of calcWolf(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, r.wolfOrder, r.wolfHoles || [])) {
+      for (const [pid, pts] of Object.entries(wh.pm)) {
+        wolfMap[pid] = (wolfMap[pid] || 0) + pts;
+      }
+    }
+  }
+
+  const nassau = ag.nassau
+    ? calcNassau(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta)
+    : null;
+
+  const ctpCount: Record<string, number> = {};
+  const ldCount: Record<string, number>  = {};
+  for (let h = 0; h < 18; h++) {
+    const cw = r.compWinners?.[h];
+    if (cw?.ctp) ctpCount[cw.ctp] = (ctpCount[cw.ctp] || 0) + 1;
+    if (cw?.ld)  ldCount[cw.ld]   = (ldCount[cw.ld]   || 0) + 1;
+  }
+  const hasCtp = ag.ctp  && Object.keys(ctpCount).length > 0;
+  const hasLd  = ag.longDrive && Object.keys(ldCount).length > 0;
+
+  const hasTeam = ag.teamMultiplier || ag.nassau;
+
+  return (
+    <div className="history-round" onClick={onOpen}>
+      <div className="history-round-header">
+        <div>
+          <div className="history-round-date">{r.label}</div>
+          <div className="history-round-holes">{formatDate(r.date)} · {r.holesPlayed} holes</div>
+        </div>
+        {confirmDeleteId === r.id ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
+            <span style={{ fontSize: 11, color: 'rgba(245,240,232,0.6)' }}>Delete?</span>
+            <button
+              style={{ fontSize: 11, padding: '3px 8px', background: 'var(--red)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer' }}
+              onClick={() => onDelete(r.id)}
+            >Yes</button>
+            <button
+              style={{ fontSize: 11, padding: '3px 8px', background: 'rgba(245,240,232,0.1)', border: '1px solid rgba(245,240,232,0.2)', borderRadius: 4, color: 'var(--cream)', cursor: 'pointer' }}
+              onClick={() => setConfirmDeleteId(null)}
+            >No</button>
+          </div>
+        ) : (
+          <button
+            className="history-delete-btn"
+            onClick={e => { e.stopPropagation(); setConfirmDeleteId(r.id); }}
+          >🗑</button>
+        )}
+      </div>
+
+      <table className="history-games-table">
+        <thead>
+          <tr>
+            <th />
+            {PLAYERS.map(p => <th key={p.id} style={{ color: p.color }}>{p.name}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Stableford</td>
+            {stbl.map(({ p, pts }) => (
+              <td key={p.id} style={{ color: 'var(--gold)', fontWeight: 700 }}>{pts}</td>
+            ))}
+          </tr>
+          {ag.gross && (
+            <tr>
+              <td>Gross</td>
+              {PLAYERS.map(p => <td key={p.id}>{grossMap[p.id] || '—'}</td>)}
+            </tr>
+          )}
+          {ag.net && (
+            <tr>
+              <td>Net</td>
+              {PLAYERS.map(p => <td key={p.id}>{netMap[p.id] || '—'}</td>)}
+            </tr>
+          )}
+          {ag.skins && (
+            <tr>
+              <td>Skins</td>
+              {PLAYERS.map(p => <td key={p.id}>{skinMap[p.id] || 0}</td>)}
+            </tr>
+          )}
+          {ag.wolf && (
+            <tr>
+              <td>Wolf</td>
+              {PLAYERS.map(p => <td key={p.id}>{wolfMap[p.id] || 0}</td>)}
+            </tr>
+          )}
+          {hasCtp && (
+            <tr>
+              <td>📍 CTP</td>
+              {PLAYERS.map(p => <td key={p.id}>{ctpCount[p.id] || 0}</td>)}
+            </tr>
+          )}
+          {hasLd && (
+            <tr>
+              <td>💨 Long Drive</td>
+              {PLAYERS.map(p => <td key={p.id}>{ldCount[p.id] || 0}</td>)}
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {hasTeam && (
+        <table className="history-games-table" style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 4 }}>
+          <thead>
+            <tr>
+              <th />
+              <th style={{ color: 'var(--team-a)' }}>{teamAName}</th>
+              <th style={{ color: 'var(--team-b)' }}>{teamBName}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {ag.teamMultiplier && (
+              <tr>
+                <td>Team</td>
+                <td>{totA}pts</td>
+                <td>{totB}pts</td>
+                <td style={{ color: teamWinColor(totA, totB), textAlign: 'right' }}>{teamWinLabel(totA, totB)}</td>
+              </tr>
+            )}
+            {nassau && <>
+              <tr>
+                <td>Front 9</td>
+                <td>{nassau.front.a}pts</td>
+                <td>{nassau.front.b}pts</td>
+                <td style={{ color: teamWinColor(nassau.front.a, nassau.front.b), textAlign: 'right' }}>{teamWinLabel(nassau.front.a, nassau.front.b)}</td>
+              </tr>
+              <tr>
+                <td>Back 9</td>
+                <td>{nassau.back.a}pts</td>
+                <td>{nassau.back.b}pts</td>
+                <td style={{ color: teamWinColor(nassau.back.a, nassau.back.b), textAlign: 'right' }}>{teamWinLabel(nassau.back.a, nassau.back.b)}</td>
+              </tr>
+              <tr>
+                <td>Full 18</td>
+                <td>{nassau.full.a}pts</td>
+                <td>{nassau.full.b}pts</td>
+                <td style={{ color: teamWinColor(nassau.full.a, nassau.full.b), textAlign: 'right' }}>{teamWinLabel(nassau.full.a, nassau.full.b)}</td>
+              </tr>
+            </>}
+          </tbody>
+        </table>
+      )}
+
+    </div>
   );
 }
 

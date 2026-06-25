@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../../../store/gameStore';
 import { fetchSavedCourses } from '../../../lib/db';
-import type { SavedCourse, TeeHole } from '../../../lib/db';
+import type { SavedCourse, TeeHole, HistoryRound } from '../../../lib/db';
 import { scanScorecardImage, saveScorecardToCloud } from '../../../lib/scan';
 import type { ScanResult } from '../../../lib/scan';
 import HoleConfirmTable from './HoleConfirmTable';
@@ -54,6 +54,26 @@ export default function Step1Course({ onNext }: Props) {
   const setTeeApplied    = useGameStore(s => s.setTeeApplied);
   const setHolesConfirmed = useGameStore(s => s.setHolesConfirmed);
   const setSelectedTee   = useGameStore(s => s.setSelectedTee);
+
+  // Recent courses from history
+  interface RecentCourse { name: string; tee: string; round: HistoryRound }
+  const [recentCourses, setRecentCourses] = useState<RecentCourse[]>([]);
+
+  useEffect(() => {
+    try {
+      const history: HistoryRound[] = JSON.parse(localStorage.getItem('golf_history') || '[]');
+      const seen = new Set<string>();
+      const recent: RecentCourse[] = [];
+      for (const r of history) {
+        const key = r.courseName?.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        recent.push({ name: r.courseName, tee: r.selectedTee, round: r });
+        if (recent.length >= 3) break;
+      }
+      setRecentCourses(recent);
+    } catch { /* ignore */ }
+  }, []);
 
   // Course library search
   const [allCourses,   setAllCourses]   = useState<SavedCourse[]>([]);
@@ -110,6 +130,35 @@ export default function Step1Course({ onNext }: Props) {
     setDuplicateWarnings({});
     setScanMsg(`✅ ${course.course_name} loaded from library`);
     setScanError('');
+  }
+
+  async function quickSelectCourse(recent: RecentCourse) {
+    let courses = allCourses;
+    if (courses.length === 0) {
+      courses = await fetchSavedCourses();
+      setAllCourses(courses);
+    }
+    const found = courses.find(
+      c => c.course_name.trim().toLowerCase() === recent.name.trim().toLowerCase()
+    );
+    if (found) {
+      selectCourse(found);
+    } else {
+      // Course not in library — restore directly from the saved round
+      const r = recent.round;
+      setCourseName(r.courseName);
+      setPars(r.pars);
+      setIndices(r.indices);
+      setSelectedTee(r.selectedTee || 'yellow');
+      setTeeApplied(true);
+      setHolesConfirmed(false);
+      setScanResult(null);
+      setAppliedTee(r.selectedTee || '');
+      setScanMsg(`✅ ${r.courseName} loaded`);
+      setScanError('');
+      setScanConfidence(undefined);
+      setDuplicateWarnings({});
+    }
   }
 
   // ── Photo scan ──────────────────────────────────────────────────────────────
@@ -200,18 +249,39 @@ export default function Step1Course({ onNext }: Props) {
     const next = [...indices]; next[hole] = val; setIndices(next);
   }
 
-  function handleUseDefaults() {
-    setScanResult(null);
-    setTeeApplied(true);
-    setHolesConfirmed(false);
-  }
-
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div>
       <div className="card">
         <div className="card-title">⛳ Course & Scorecard</div>
+
+        {/* Recent courses */}
+        {recentCourses.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.35)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
+              Recent
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {recentCourses.map(rc => (
+                <button
+                  key={rc.name}
+                  onClick={() => quickSelectCourse(rc)}
+                  style={{
+                    padding: '6px 12px', borderRadius: 7, cursor: 'pointer',
+                    fontSize: 12, fontWeight: 600,
+                    background: 'rgba(201,168,76,0.1)',
+                    border: '1px solid rgba(201,168,76,0.28)',
+                    color: 'var(--gold)',
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >
+                  {rc.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Course library search */}
         <div style={{ position: 'relative', marginBottom: 10 }}>
@@ -357,16 +427,6 @@ export default function Step1Course({ onNext }: Props) {
           </div>
         )}
 
-        {/* Fallback: use defaults */}
-        {!teeApplied && !scanResult && (
-          <button
-            className="btn-secondary"
-            style={{ width: '100%', marginTop: 4 }}
-            onClick={handleUseDefaults}
-          >
-            Use default hole data (Shortland Waters)
-          </button>
-        )}
       </div>
 
       {/* Hole confirmation */}
