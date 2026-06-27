@@ -115,7 +115,7 @@ const defaultState: GameState = {
   scores: initScores(),
   compWinners: initCompWinners(),
   currentHole: 0,
-  courseName: 'Shortland Waters',
+  courseName: '',
   selectedTee: 'yellow',
   teeApplied: false,
   holesConfirmed: false,
