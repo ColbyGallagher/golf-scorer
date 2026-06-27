@@ -299,24 +299,25 @@ describe('handicapIndex', () => {
 
   it('averages the best 8 of up to 20 scores', () => {
     // 20 scores: 18 at differential 20, 2 at differential 5
-    const scores: HandicapScore[] = Array.from({ length: 18 }, (_, i) => ({
-      playerId: 'colby', date: `2025-01-${String(i + 1).padStart(2, '0')}`, course: 'X',
-      score: 90, rating: 70, slope: 113, differential: 20,
-    })).concat([
+    const scores: HandicapScore[] = [
+      ...Array.from({ length: 18 }, (_, i): HandicapScore => ({
+        playerId: 'colby', date: `2025-01-${String(i + 1).padStart(2, '0')}`, course: 'X',
+        score: 90, rating: 70, slope: 113, differential: 20,
+      })),
       { playerId: 'colby', date: '2025-07-01', course: 'Y', score: 75, rating: 70, slope: 113, differential: 5 },
       { playerId: 'colby', date: '2025-07-02', course: 'Y', score: 75, rating: 70, slope: 113, differential: 5 },
-    ]);
+    ];
     // best 8 of last 20: the two 5s + six 20s → avg = (5+5+20*6)/8 = 130/8 = 16.25
     expect(handicapIndex(scores)).toBeCloseTo(16.25, 4);
   });
 
   it('uses only the most recent 20 when history is longer', () => {
     // 25 scores; first 5 are very low (old), last 20 are high
-    const old: HandicapScore[] = Array.from({ length: 5 }, (_, i) => ({
+    const old: HandicapScore[] = Array.from({ length: 5 }, (_, i): HandicapScore => ({
       playerId: 'mitch', date: `2024-01-${String(i + 1).padStart(2, '0')}`, course: 'Z',
       score: 70, rating: 70, slope: 113, differential: 0,
     }));
-    const recent: HandicapScore[] = Array.from({ length: 20 }, (_, i) => ({
+    const recent: HandicapScore[] = Array.from({ length: 20 }, (_, i): HandicapScore => ({
       playerId: 'mitch', date: `2025-01-${String(i + 1).padStart(2, '0')}`, course: 'Z',
       score: 92, rating: 70, slope: 113, differential: 22,
     }));
