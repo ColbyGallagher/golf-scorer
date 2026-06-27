@@ -8,6 +8,8 @@ export interface SavedCourse {
   course_name: string;
   tees: Record<string, TeeHole[]>;
   scanned_at: string;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export interface HistoryRound {
@@ -129,7 +131,7 @@ export async function fetchAllCourses(): Promise<SavedCourse[]> {
   try {
     const { data, error } = await supabase
       .from('scorecards')
-      .select('id, course_name, tees, scanned_at')
+      .select('id, course_name, tees, scanned_at, lat, lng')
       .order('scanned_at', { ascending: false });
     if (error || !data) return [];
     const seen = new Set<string>();
@@ -158,9 +160,23 @@ export async function updateScorecard(
   } catch { return 'error'; }
 }
 
+export async function renameCourse(oldName: string, newName: string): Promise<'saved' | 'error'> {
+  try {
+    const { error } = await supabase
+      .from('scorecards')
+      .update({ course_name: newName })
+      .ilike('course_name', oldName);
+    if (error) throw error;
+    cachedCourses = null;
+    return 'saved';
+  } catch { return 'error'; }
+}
+
 export async function saveApiCourseToCloud(
   courseName: string,
   tees: Record<string, TeeHole[]>,
+  lat?: number,
+  lng?: number,
 ): Promise<'saved' | 'exists' | 'error'> {
   try {
     const { data: existing } = await supabase
@@ -175,6 +191,8 @@ export async function saveApiCourseToCloud(
       selected_tee: '',
       tees,
       image_path: null,
+      lat: lat ?? null,
+      lng: lng ?? null,
     });
     if (error) throw error;
     cachedCourses = null;
@@ -204,6 +222,7 @@ function tourEventToRow(e: TourEvent) {
     three_putt_counts:  e.threePuttCounts,
     poop_winner:        e.poopWinner,
     round_id:           e.roundId,
+    source:             e.source,
   };
 }
 
@@ -228,6 +247,7 @@ function rowToTourEvent(row: any): TourEvent {
     threePuttCounts:  row.three_putt_counts ?? {},
     poopWinner:       row.poop_winner ?? null,
     roundId:          row.round_id ?? null,
+    source:           row.source ?? 'excel',
   };
 }
 
@@ -269,6 +289,7 @@ function handicapScoreToRow(s: HandicapScore) {
     rating:       s.rating,
     slope:        s.slope,
     differential: s.differential,
+    source:       s.source ?? 'app',
   };
 }
 
@@ -282,6 +303,7 @@ function rowToHandicapScore(row: any): HandicapScore {
     rating:       row.rating ?? 0,
     slope:        row.slope ?? 113,
     differential: row.differential ?? 0,
+    source:       row.source ?? 'import',
   };
 }
 
@@ -314,7 +336,7 @@ export async function fetchSavedCourses(): Promise<SavedCourse[]> {
   try {
     const { data, error } = await supabase
       .from('scorecards')
-      .select('id, course_name, tees, scanned_at')
+      .select('id, course_name, tees, scanned_at, lat, lng')
       .order('scanned_at', { ascending: false });
     if (error || !data) { cachedCourses = []; return []; }
     const seen = new Set<string>();

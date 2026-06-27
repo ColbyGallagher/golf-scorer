@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useGameStore, PLAYERS } from '../../store/gameStore';
 import { stablefordPoints, teamTotals } from '../../lib/scoring';
+import { fetchHandicapScores } from '../../lib/db';
+import { handicapIndex } from '../../lib/handicap';
 import type { HistoryRound } from '../../lib/db';
-import type { PlayerId } from '../../lib/types';
+import type { PlayerId, HandicapScore } from '../../lib/types';
 
 function loadHistory(): HistoryRound[] {
   if (typeof window === 'undefined') return [];
@@ -158,9 +160,95 @@ function PlayerCard({ pid, name, color, handicap, stats, editing, onChangeHandic
   );
 }
 
-function PlayerDetail({ pid, name, color, handicap, rounds, onClose }: {
+const MONTHS: Record<string, string> = {
+  '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
+  '07': 'Jul', '08': 'Aug', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec',
+};
+
+function fmtShortDate(d: string) {
+  if (!d) return '';
+  const [yr, m, day] = d.split('-');
+  return `${MONTHS[m] ?? m} ${parseInt(day, 10)}, ${yr}`;
+}
+
+function HandicapHistorySection({ scores }: { scores: HandicapScore[] }) {
+  const idx = handicapIndex(scores);
+  const sorted = [...scores].sort((a, b) => b.date.localeCompare(a.date));
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+        <div className="card-title" style={{ margin: 0 }}>⛳ Handicap</div>
+        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 22, fontWeight: 700, color: 'var(--gold)' }}>
+          {idx.toFixed(1)}
+        </span>
+        <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.35)' }}>WHS index</span>
+      </div>
+
+      {scores.length === 0 ? (
+        <div style={{ fontSize: 12, color: 'rgba(245,240,232,0.3)', padding: '8px 0' }}>No handicap scores recorded.</div>
+      ) : (
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 300 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(201,168,76,0.2)' }}>
+                <th style={{ textAlign: 'left', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 5 }}>Date</th>
+                <th style={{ textAlign: 'left', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 5, paddingLeft: 8 }}>Course</th>
+                <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 5, paddingLeft: 8 }}>Gross</th>
+                <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 5, paddingLeft: 8 }}>Diff</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((s, i) => {
+                const prevSource = i > 0 ? sorted[i - 1].source : null;
+                const showDivider = s.source === 'import' && prevSource === 'app';
+                return (
+                  <React.Fragment key={i}>
+                    {showDivider && (
+                      <tr>
+                        <td colSpan={4} style={{ padding: '6px 0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.25)' }} />
+                            <span style={{ fontSize: 9, color: 'rgba(201,168,76,0.5)', letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>spreadsheet import</span>
+                            <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.25)' }} />
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <td style={{ fontSize: 11, color: 'rgba(245,240,232,0.5)', paddingTop: 7, paddingBottom: 7, whiteSpace: 'nowrap' }}>
+                        {fmtShortDate(s.date)}
+                      </td>
+                      <td style={{ fontSize: 11, color: 'var(--cream)', paddingTop: 7, paddingBottom: 7, paddingLeft: 8 }}>
+                        {s.course}
+                      </td>
+                      <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, textAlign: 'right', paddingLeft: 8 }}>
+                        {s.score}
+                      </td>
+                      <td style={{
+                        fontFamily: "'DM Mono', monospace", fontSize: 12, textAlign: 'right', paddingLeft: 8,
+                        color: s.differential < 0 ? 'var(--green-bright)' : s.differential > 20 ? 'rgba(224,85,85,0.8)' : 'rgba(245,240,232,0.6)',
+                      }}>
+                        {s.differential >= 0 ? '+' : ''}{s.differential.toFixed(1)}
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div style={{ marginTop: 8, fontSize: 10, color: 'rgba(245,240,232,0.25)' }}>
+        WHS: avg best 8 of last 20 differentials · {scores.length} total round{scores.length !== 1 ? 's' : ''}
+      </div>
+    </div>
+  );
+}
+
+function PlayerDetail({ pid, name, color, handicap, rounds, hScores, onClose }: {
   pid: string; name: string; color: string; handicap: number;
-  rounds: HistoryRound[]; onClose: () => void;
+  rounds: HistoryRound[]; hScores: HandicapScore[]; onClose: () => void;
 }) {
   const played = playerRounds(rounds, pid);
   const stats  = computeStats(rounds, pid);
@@ -215,6 +303,8 @@ function PlayerDetail({ pid, name, color, handicap, rounds, onClose }: {
           </div>
         )}
 
+        <HandicapHistorySection scores={hScores} />
+
         <div className="card-title">🏌️ Round History</div>
 
         {played.length === 0 ? (
@@ -247,9 +337,9 @@ function PlayerDetail({ pid, name, color, handicap, rounds, onClose }: {
                   {won !== null && (
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
-                      background: won ? 'rgba(78,186,122,0.15)' : 'rgba(224,85,85,0.12)',
+                      background: won ? 'rgba(34,197,94,0.15)' : 'rgba(224,85,85,0.12)',
                       color: won ? 'var(--green-bright)' : 'var(--red)',
-                      border: `1px solid ${won ? 'rgba(78,186,122,0.3)' : 'rgba(224,85,85,0.25)'}`,
+                      border: `1px solid ${won ? 'rgba(34,197,94,0.3)' : 'rgba(224,85,85,0.25)'}`,
                     }}>
                       {won ? 'W' : 'L'}
                     </span>
@@ -284,12 +374,16 @@ function PlayerDetail({ pid, name, color, handicap, rounds, onClose }: {
 
 export default function PlayersPage() {
   const [rounds,   setRounds]   = useState<HistoryRound[]>([]);
+  const [hScores,  setHScores]  = useState<HandicapScore[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [editing,  setEditing]  = useState(false);
   const handicaps   = useGameStore(s => s.handicaps);
   const setHandicap = useGameStore(s => s.setHandicap);
 
-  useEffect(() => { setRounds(loadHistory()); }, []);
+  useEffect(() => {
+    setRounds(loadHistory());
+    fetchHandicapScores().then(setHScores);
+  }, []);
 
   const selectedPlayer = selected ? PLAYERS.find(p => p.id === selected) : null;
 
@@ -302,8 +396,8 @@ export default function PlayersPage() {
           onClick={() => setEditing(e => !e)}
           style={{
             fontSize: 12, fontWeight: 600, padding: '4px 11px', borderRadius: 6, cursor: 'pointer',
-            background: editing ? 'rgba(78,186,122,0.15)' : 'rgba(201,168,76,0.12)',
-            border: `1px solid ${editing ? 'rgba(78,186,122,0.4)' : 'rgba(201,168,76,0.3)'}`,
+            background: editing ? 'rgba(34,197,94,0.15)' : 'rgba(201,168,76,0.12)',
+            border: `1px solid ${editing ? 'rgba(34,197,94,0.4)' : 'rgba(201,168,76,0.3)'}`,
             color: editing ? 'var(--green-bright)' : 'var(--gold)',
             fontFamily: "'DM Sans', sans-serif",
           }}
@@ -334,6 +428,7 @@ export default function PlayersPage() {
           color={selectedPlayer.color}
           handicap={handicaps[selectedPlayer.id as PlayerId]}
           rounds={rounds}
+          hScores={hScores.filter(s => s.playerId === selectedPlayer.id)}
           onClose={() => setSelected(null)}
         />
       )}

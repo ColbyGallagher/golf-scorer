@@ -36,6 +36,7 @@ export default function CompBanner({ hole }: Props) {
         {PLAYERS.map(p => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
+        <option value="none">No Result</option>
       </select>
     </div>
   );

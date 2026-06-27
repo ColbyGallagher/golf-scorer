@@ -125,6 +125,8 @@ export async function saveScorecardToCloud(
   selectedTee: string,
   tees: Record<string, TeeHole[]>,
   imageFile: File,
+  lat?: number,
+  lng?: number,
 ): Promise<void> {
   let imagePath: string | null = null;
   try {
@@ -144,6 +146,8 @@ export async function saveScorecardToCloud(
     selected_tee: selectedTee,
     tees,
     image_path: imagePath,
+    lat: lat ?? null,
+    lng: lng ?? null,
   });
   if (error) console.error('Scorecard save failed:', error);
 }

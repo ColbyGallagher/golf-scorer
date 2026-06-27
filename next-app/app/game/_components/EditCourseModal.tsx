@@ -300,7 +300,7 @@ export default function EditCourseModal({ onClose }: Props) {
           {saveState === 'saved' && (
             <div style={{
               padding: '7px 10px',
-              background: 'rgba(78,186,122,0.1)', border: '1px solid rgba(78,186,122,0.25)',
+              background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)',
               borderRadius: 7, fontSize: 11, color: 'var(--green-bright)',
             }}>✓ Course library updated</div>
           )}

@@ -68,14 +68,14 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
   return (
     <>
       {diff > 0 && (
-        <div className="result-banner" style={{ background: 'rgba(78,186,122,0.1)', border: '1px solid rgba(78,186,122,0.25)' }}>
+        <div className="result-banner" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}>
           <div className="result-label">Leading</div>
           <div className="result-text" style={{ color: 'var(--team-a)' }}>{teamAName}</div>
           <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)', marginTop: 3 }}>{diff} pts ahead</div>
         </div>
       )}
       {diff < 0 && (
-        <div className="result-banner" style={{ background: 'rgba(85,153,204,0.1)', border: '1px solid rgba(85,153,204,0.25)' }}>
+        <div className="result-banner" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)' }}>
           <div className="result-label">Leading</div>
           <div className="result-text" style={{ color: 'var(--team-b)' }}>{teamBName}</div>
           <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)', marginTop: 3 }}>{Math.abs(diff)} pts ahead</div>

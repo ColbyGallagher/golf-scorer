@@ -57,6 +57,7 @@ export interface TourEvent {
   threePuttCounts: Record<PlayerId, number>;
   poopWinner: PlayerId | null;
   roundId: number | null;
+  source: 'excel' | 'app';
 }
 
 export interface HandicapScore {
@@ -67,6 +68,7 @@ export interface HandicapScore {
   rating: number;
   slope: number;
   differential: number;
+  source?: 'import' | 'app';
 }
 
 export interface TourPlayerPoints {

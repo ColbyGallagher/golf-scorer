@@ -16,19 +16,19 @@
     --green-deep: #0d2818;
     --green-mid: #1a4a2e;
     --green-light: #2d7a4f;
-    --green-bright: #4eba7a;
+    --green-bright: #22c55e;
     --gold: #c9a84c;
     --gold-light: #e8c97a;
     --cream: #f5f0e8;
     --white: #ffffff;
     --red: #e05555;
-    --blue: #5599cc;
+    --blue: #3b82f6;
     --text-dark: #1a1a1a;
     --shadow: 0 4px 24px rgba(0,0,0,0.35);
     --radius: 16px;
     --radius-sm: 10px;
-    --team-a: #4eba7a;
-    --team-b: #5599cc;
+    --team-a: #22c55e;
+    --team-b: #3b82f6;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: 'DM Sans', sans-serif; background: var(--green-deep); color: var(--cream); min-height: 100vh; overflow-x: hidden; }
@@ -57,8 +57,8 @@
   .player-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
   .player-name-label { font-weight: 600; font-size: 14px; flex: 1; }
   .player-team-badge { font-size: 9px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 2px 7px; border-radius: 20px; }
-  .team-a-badge { background: rgba(78,186,122,0.2); color: var(--team-a); border: 1px solid rgba(78,186,122,0.3); }
-  .team-b-badge { background: rgba(85,153,204,0.2); color: var(--team-b); border: 1px solid rgba(85,153,204,0.3); }
+  .team-a-badge { background: rgba(34,197,94,0.2); color: var(--team-a); border: 1px solid rgba(34,197,94,0.3); }
+  .team-b-badge { background: rgba(59,130,246,0.2); color: var(--team-b); border: 1px solid rgba(59,130,246,0.3); }
   .hcp-input { width: 54px; padding: 6px 7px; background: rgba(0,0,0,0.3); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; color: var(--cream); font-family: 'DM Mono', monospace; font-size: 14px; text-align: center; outline: none; transition: border-color 0.2s; }
   .hcp-input:focus { border-color: var(--gold); }
 
@@ -73,10 +73,10 @@
   .ct-par-val { display: inline-block; min-width: 22px; text-align: center; font-weight: 600; color: var(--cream); }
   .ct-idx-input { width: 42px; padding: 3px 4px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 5px; color: var(--cream); font-family: 'DM Mono', monospace; font-size: 12px; text-align: center; outline: none; }
   .ct-idx-input:focus { border-color: var(--gold); }
-  .par3-row td { background: rgba(85,153,204,0.04); }
+  .par3-row td { background: rgba(59,130,246,0.04); }
   .par5-row td { background: rgba(201,168,76,0.04); }
   .ct-type { font-size: 9px; padding: 2px 5px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-weight: 600; letter-spacing: 0.5px; }
-  .ct-type-3 { background: rgba(85,153,204,0.2); color: var(--blue); }
+  .ct-type-3 { background: rgba(59,130,246,0.2); color: var(--blue); }
   .ct-type-4 { background: rgba(255,255,255,0.05); color: rgba(245,240,232,0.4); }
   .ct-type-5 { background: rgba(201,168,76,0.15); color: var(--gold); }
 
@@ -89,7 +89,7 @@
   .hole-dots { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
   .hole-dot { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; color: rgba(245,240,232,0.5); font-family: 'DM Mono', monospace; }
   .hole-dot.current { background: var(--gold); border-color: var(--gold); color: var(--green-deep); }
-  .hole-dot.complete { background: rgba(78,186,122,0.2); border-color: rgba(78,186,122,0.4); color: var(--green-bright); }
+  .hole-dot.complete { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.4); color: var(--green-bright); }
 
   /* HOLE NAV */
   .hole-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
@@ -109,7 +109,7 @@
   .idx-badge { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 10px; font-size: 11px; color: rgba(245,240,232,0.5); font-family: 'DM Mono', monospace; }
   .idx-badge span { color: var(--cream); font-weight: 600; }
   .hole-type-badge { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 5px 10px; border-radius: 20px; margin-left: auto; }
-  .par3-badge { background: rgba(85,153,204,0.2); color: var(--blue); border: 1px solid rgba(85,153,204,0.3); }
+  .par3-badge { background: rgba(59,130,246,0.2); color: var(--blue); border: 1px solid rgba(59,130,246,0.3); }
   .par4-badge { background: rgba(255,255,255,0.06); color: rgba(245,240,232,0.5); border: 1px solid rgba(255,255,255,0.08); }
   .par5-badge { background: rgba(201,168,76,0.15); color: var(--gold); border: 1px solid rgba(201,168,76,0.25); }
 
@@ -133,11 +133,11 @@
   .history-detail-overlay.open { display: block; }
   .history-detail-header { background: linear-gradient(160deg, var(--green-mid), var(--green-deep)); padding: 16px 16px 12px; border-bottom: 1px solid rgba(201,168,76,0.2); position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px; }
   .history-back-btn { background: rgba(201,168,76,0.12); border: 1px solid rgba(201,168,76,0.25); border-radius: 8px; color: var(--gold); font-size: 13px; font-weight: 600; padding: 7px 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; flex-shrink: 0; }
-  .save-round-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, rgba(78,186,122,0.25), rgba(78,186,122,0.12)); border: 1px solid rgba(78,186,122,0.35); border-radius: var(--radius-sm); color: var(--green-bright); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; margin-bottom: 12px; transition: background 0.2s; }
-  .save-round-btn:active { background: rgba(78,186,122,0.3); }
+  .save-round-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, rgba(34,197,94,0.25), rgba(34,197,94,0.12)); border: 1px solid rgba(34,197,94,0.35); border-radius: var(--radius-sm); color: var(--green-bright); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; margin-bottom: 12px; transition: background 0.2s; }
+  .save-round-btn:active { background: rgba(34,197,94,0.3); }
 
   .comp-banner { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 12px; font-weight: 500; }
-  .ctp-banner { background: rgba(85,153,204,0.12); border: 1px solid rgba(85,153,204,0.25); color: #88bbee; }
+  .ctp-banner { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); color: #60a5fa; }
   .ld-banner { background: rgba(201,168,76,0.12); border: 1px solid rgba(201,168,76,0.25); color: var(--gold-light); }
   .comp-winner-select { margin-left: auto; padding: 4px 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; color: var(--cream); font-size: 11px; font-family: 'DM Sans', sans-serif; outline: none; cursor: pointer; }
   select.comp-winner-select option { background: #1a3a2a; }
@@ -160,7 +160,7 @@
   .pts-0 { color: var(--red); background: rgba(224,85,85,0.12); }
   .pts-1 { color: rgba(245,240,232,0.6); background: rgba(255,255,255,0.06); }
   .pts-2 { color: var(--cream); background: rgba(255,255,255,0.08); }
-  .pts-3 { color: var(--green-bright); background: rgba(78,186,122,0.15); }
+  .pts-3 { color: var(--green-bright); background: rgba(34,197,94,0.15); }
   .pts-4 { color: var(--gold); background: rgba(201,168,76,0.15); }
   .pts-5p { color: #ff9944; background: rgba(255,153,68,0.15); }
   .stroke-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); margin-left: 3px; vertical-align: middle; opacity: 0.9; }
@@ -179,8 +179,8 @@
 
   /* TEAMS */
   .team-card { border-radius: var(--radius); padding: 13px; margin-bottom: 11px; }
-  .team-a-card { background: linear-gradient(135deg, rgba(78,186,122,0.12), rgba(13,40,24,0.5)); border: 1px solid rgba(78,186,122,0.2); }
-  .team-b-card { background: linear-gradient(135deg, rgba(85,153,204,0.12), rgba(13,40,24,0.5)); border: 1px solid rgba(85,153,204,0.2); }
+  .team-a-card { background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(13,40,24,0.5)); border: 1px solid rgba(34,197,94,0.2); }
+  .team-b-card { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(13,40,24,0.5)); border: 1px solid rgba(59,130,246,0.2); }
   .team-name { font-family: 'Playfair Display', serif; font-size: 15px; margin-bottom: 7px; }
   .team-a-card .team-name { color: var(--team-a); }
   .team-b-card .team-name { color: var(--team-b); }
@@ -204,7 +204,7 @@
 
 <div class="app-header">
   <h1>Shortland Waters Golf Club</h1>
-  <div class="subtitle">Stableford Scorecard · <span id="course-par-display">Par 71</span> · <span id="save-indicator" style="color:rgba(78,186,122,0.7);">💾 Auto-saving</span></div>
+  <div class="subtitle">Stableford Scorecard · <span id="course-par-display">Par 71</span> · <span id="save-indicator" style="color:rgba(34,197,94,0.7);">💾 Auto-saving</span></div>
 </div>
 
 <div class="nav-tabs">
@@ -255,7 +255,7 @@
         <input id="course-search-input" type="text" placeholder="Search saved courses…" autocomplete="off"
           style="width:100%;padding:8px 11px 8px 32px;background:rgba(0,0,0,0.25);border:1px solid rgba(245,240,232,0.12);border-radius:8px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;box-sizing:border-box;"
           onfocus="onCourseSearchFocus()" oninput="onCourseSearchInput(this.value)" onblur="onCourseSearchBlur()">
-        <div id="course-search-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#162018;border:1px solid rgba(78,186,122,0.22);border-radius:9px;max-height:210px;overflow-y:auto;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
+        <div id="course-search-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#162018;border:1px solid rgba(34,197,94,0.22);border-radius:9px;max-height:210px;overflow-y:auto;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <div style="flex:1;height:1px;background:rgba(245,240,232,0.08);"></div>
@@ -469,10 +469,10 @@ const HOLE_DATA = [
 ];
 
 const PLAYERS = [
-  { id: 'colby', name: 'Colby', team: 'A', color: '#4eba7a' },
-  { id: 'mitch', name: 'Mitch', team: 'A', color: '#84d4a4' },
-  { id: 'dave',  name: 'Dave',  team: 'B', color: '#5599cc' },
-  { id: 'scott', name: 'Scott', team: 'B', color: '#88bbee' },
+  { id: 'colby', name: 'Colby', team: 'A', color: '#22c55e' },
+  { id: 'mitch', name: 'Mitch', team: 'A', color: '#f97316' },
+  { id: 'dave',  name: 'Dave',  team: 'B', color: '#3b82f6' },
+  { id: 'scott', name: 'Scott', team: 'B', color: '#ef4444' },
 ];
 
 // ══════════════════════════════════════════════
@@ -643,10 +643,10 @@ function setHeaderSaveStatus(state, hole) {
   if (!el) return;
   if (state === 'saved') {
     el.innerHTML = `✅ Saved H${hole}`;
-    el.style.color = 'rgba(78,186,122,1)';
+    el.style.color = 'rgba(34,197,94,1)';
     setTimeout(() => {
       el.innerHTML = '💾 Auto-saving';
-      el.style.color = 'rgba(78,186,122,0.5)';
+      el.style.color = 'rgba(34,197,94,0.5)';
     }, 3000);
   }
 }
@@ -771,9 +771,9 @@ function openHistoryDetail(id) {
   const hdTeamBName = PLAYERS.filter(p=>rta[p.id]==='B').map(p=>p.name).join(' & ') || 'Team B';
   const diff = totA - totB;
   const resultBanner = diff > 0
-    ? `<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-a);">${hdTeamAName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`
+    ? `<div class="result-banner" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-a);">${hdTeamAName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`
     : diff < 0
-    ? `<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-b);">${hdTeamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`
+    ? `<div class="result-banner" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);"><div class="result-label">Winner</div><div class="result-text" style="color:var(--team-b);">${hdTeamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`
     : `<div class="result-banner" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);"><div class="result-label">Result</div><div class="result-text" style="color:var(--gold);">All Square</div></div>`;
 
   const hcpLine = PLAYERS.map(p=>`${p.name} HCP ${r.handicaps[p.id]}`).join(' · ');
@@ -815,7 +815,7 @@ function saveState() {
       courseRating, slopeRating, teamAssignments, activeGames, wolfOrder, wolfHoles, gameActive, threePutts
     }));
     const el = document.getElementById('save-indicator');
-    if (el) { el.style.color='rgba(78,186,122,1)'; setTimeout(()=>{ el.style.color='rgba(78,186,122,0.5)'; }, 600); }
+    if (el) { el.style.color='rgba(34,197,94,1)'; setTimeout(()=>{ el.style.color='rgba(34,197,94,0.5)'; }, 600); }
   } catch(e) {}
 }
 
@@ -915,7 +915,7 @@ function renderActiveGame() {
         ${activeList.length ? `<div style="padding:9px 0;border-bottom:1px solid rgba(245,240,232,0.06);">
           <div style="font-size:11px;color:rgba(245,240,232,0.4);margin-bottom:8px;">Games</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            ${activeList.map(g => `<span style="font-size:11px;padding:3px 9px;background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.2);border-radius:20px;color:var(--green-bright);">${g}</span>`).join('')}
+            ${activeList.map(g => `<span style="font-size:11px;padding:3px 9px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:20px;color:var(--green-bright);">${g}</span>`).join('')}
           </div>
         </div>` : ''}
         <div style="padding:9px 0;">
@@ -1151,7 +1151,7 @@ function renderGameFormat() {
     const on = locked || activeGames[key];
     return `<div ${locked ? '' : `onclick="toggleGame('${key}')"`}
       style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;cursor:${locked?'default':'pointer'};user-select:none;-webkit-tap-highlight-color:transparent;transition:background 0.15s,border 0.15s;
-        ${on ? 'background:rgba(78,186,122,0.07);border:1px solid rgba(78,186,122,0.18);' : 'background:rgba(245,240,232,0.02);border:1px solid rgba(245,240,232,0.07);'}">
+        ${on ? 'background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.18);' : 'background:rgba(245,240,232,0.02);border:1px solid rgba(245,240,232,0.07);'}">
       <span style="font-size:15px;transition:opacity 0.15s;${on?'':'opacity:0.35;'}">${emoji}</span>
       <div style="transition:opacity 0.15s;${on?'':'opacity:0.4;'}">
         <div style="font-size:13px;font-weight:600;">${title}</div>
@@ -1288,7 +1288,7 @@ function renderWolfHoleSection(h) {
   }
 
   const on  = (active) => active
-    ? 'background:rgba(78,186,122,0.18);border-color:var(--green-bright);color:var(--green-bright);'
+    ? 'background:rgba(34,197,94,0.18);border-color:var(--green-bright);color:var(--green-bright);'
     : 'background:rgba(245,240,232,0.04);border-color:rgba(245,240,232,0.12);color:rgba(245,240,232,0.45);';
   const btn = `padding:6px 12px;border-radius:20px;border:1px solid;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;`;
 
@@ -1386,11 +1386,11 @@ function renderTeamSetup() {
   const teamBPlayers = PLAYERS.filter(p => teamAssignments[p.id] === 'B');
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;">
-      <div style="background:rgba(78,186,122,0.08);border:1px solid rgba(78,186,122,0.2);border-radius:10px;padding:11px;">
+      <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:11px;">
         <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--team-a);margin-bottom:5px;">Team A</div>
         ${teamAPlayers.length ? teamAPlayers.map(p=>`<div style="font-size:13px;font-weight:600;">${p.name}</div>`).join('') : '<div style="font-size:11px;color:rgba(245,240,232,0.25);">— empty —</div>'}
       </div>
-      <div style="background:rgba(85,153,204,0.08);border:1px solid rgba(85,153,204,0.2);border-radius:10px;padding:11px;">
+      <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:11px;">
         <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--team-b);margin-bottom:5px;">Team B</div>
         ${teamBPlayers.length ? teamBPlayers.map(p=>`<div style="font-size:13px;font-weight:600;">${p.name}</div>`).join('') : '<div style="font-size:11px;color:rgba(245,240,232,0.25);">— empty —</div>'}
       </div>
@@ -1401,8 +1401,8 @@ function renderTeamSetup() {
         <div class="player-dot" style="background:${p.color}"></div>
         <div class="player-name-label">${p.name}</div>
         <div style="display:flex;gap:5px;margin-left:auto;">
-          <button onclick="setTeam('${p.id}','A')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;transition:all 0.15s;${inA ? 'background:rgba(78,186,122,0.25);border-color:var(--team-a);color:var(--team-a);' : 'background:transparent;border-color:rgba(245,240,232,0.15);color:rgba(245,240,232,0.3);'}">A</button>
-          <button onclick="setTeam('${p.id}','B')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;transition:all 0.15s;${!inA ? 'background:rgba(85,153,204,0.25);border-color:var(--team-b);color:var(--team-b);' : 'background:transparent;border-color:rgba(245,240,232,0.15);color:rgba(245,240,232,0.3);'}">B</button>
+          <button onclick="setTeam('${p.id}','A')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;transition:all 0.15s;${inA ? 'background:rgba(34,197,94,0.25);border-color:var(--team-a);color:var(--team-a);' : 'background:transparent;border-color:rgba(245,240,232,0.15);color:rgba(245,240,232,0.3);'}">A</button>
+          <button onclick="setTeam('${p.id}','B')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;transition:all 0.15s;${!inA ? 'background:rgba(59,130,246,0.25);border-color:var(--team-b);color:var(--team-b);' : 'background:transparent;border-color:rgba(245,240,232,0.15);color:rgba(245,240,232,0.3);'}">B</button>
         </div>
       </div>`;
     }).join('')}
@@ -1816,8 +1816,8 @@ function renderTeams() {
 
     const diff = totA - totB;
     let resultHTML = '';
-    if (diff>0) resultHTML=`<div class="result-banner" style="background:rgba(78,186,122,0.1);border:1px solid rgba(78,186,122,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-a);">${teamAName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`;
-    else if (diff<0) resultHTML=`<div class="result-banner" style="background:rgba(85,153,204,0.1);border:1px solid rgba(85,153,204,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-b);">${teamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`;
+    if (diff>0) resultHTML=`<div class="result-banner" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-a);">${teamAName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${diff} pts ahead</div></div>`;
+    else if (diff<0) resultHTML=`<div class="result-banner" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);"><div class="result-label">Leading</div><div class="result-text" style="color:var(--team-b);">${teamBName}</div><div style="font-size:11px;color:rgba(245,240,232,0.4);margin-top:3px;">${Math.abs(diff)} pts ahead</div></div>`;
     else resultHTML=`<div class="result-banner" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);"><div class="result-label">Status</div><div class="result-text" style="color:var(--gold);">All Square</div></div>`;
 
     let multiplierHTML = '';
@@ -1995,7 +1995,7 @@ function onCourseSearchInput(query) {
     const date = new Date(c.scanned_at).toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' });
     return `<div onmousedown="selectSavedCourse(${i})"
       style="padding:10px 13px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.1s;"
-      onmouseover="this.style.background='rgba(78,186,122,0.09)'"
+      onmouseover="this.style.background='rgba(34,197,94,0.09)'"
       onmouseout="this.style.background=''">
       <div style="font-size:13px;font-weight:600;">${c.course_name}</div>
       <div style="font-size:10px;color:rgba(245,240,232,0.4);margin-top:2px;">${teeNames.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join(' · ')} &nbsp;·&nbsp; ${date}</div>
@@ -2039,7 +2039,7 @@ function selectSavedCourse(idx) {
   const msgEl      = document.getElementById('scan-message');
   statusEl.style.display    = 'block';
   previewWrap.style.display = 'none';
-  msgEl.style.background = 'rgba(78,186,122,0.12)';
+  msgEl.style.background = 'rgba(34,197,94,0.12)';
   msgEl.style.color      = 'var(--green-bright)';
   const teeNames = Object.keys(course.tees || {});
   msgEl.textContent = `✅ ${course.course_name} loaded from library · pick your tees below`;
@@ -2056,7 +2056,7 @@ let lastScanSaved  = false;
 const TEE_STYLES = {
   yellow: { bg: 'rgba(255,215,0,0.18)',   border: 'rgba(255,215,0,0.6)',    color: '#ffe566' },
   white:  { bg: 'rgba(255,255,255,0.08)', border: 'rgba(255,255,255,0.25)', color: 'rgba(245,240,232,0.7)' },
-  blue:   { bg: 'rgba(85,153,204,0.15)',  border: 'rgba(85,153,204,0.4)',   color: '#88bbee' },
+  blue:   { bg: 'rgba(59,130,246,0.15)',  border: 'rgba(59,130,246,0.4)',   color: '#88bbee' },
   red:    { bg: 'rgba(224,85,85,0.15)',   border: 'rgba(224,85,85,0.4)',    color: '#f08080' },
   black:  { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.12)', color: 'rgba(245,240,232,0.4)' },
   gold:   { bg: 'rgba(201,168,76,0.18)',  border: 'rgba(201,168,76,0.6)',   color: '#c9a84c' },
@@ -2126,7 +2126,7 @@ function handleScorecardImage(event) {
         if (ni) ni.value = courseName;
         updateHeader();
       }
-      msgEl.style.background = 'rgba(78,186,122,0.12)';
+      msgEl.style.background = 'rgba(34,197,94,0.12)';
       msgEl.style.color = 'var(--green-bright)';
       msgEl.textContent = `✅ ${result.courseName || 'Scorecard'} scanned · ${teeNames.length} tee set${teeNames.length !== 1 ? 's' : ''} found — select yours below`;
       renderTeeOptions(tees, teeNames);
@@ -2177,7 +2177,7 @@ function applyTee(tee, btn) {
   const par   = pars.reduce((a, b) => a + b, 0);
   const msgEl = document.getElementById('scan-message');
   if (msgEl) {
-    msgEl.style.background = 'rgba(78,186,122,0.12)';
+    msgEl.style.background = 'rgba(34,197,94,0.12)';
     msgEl.style.color = 'var(--green-bright)';
     msgEl.textContent = `✅ ${tee.charAt(0).toUpperCase() + tee.slice(1)} tees loaded · Par ${par}`;
   }

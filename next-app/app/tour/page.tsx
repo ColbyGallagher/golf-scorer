@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PLAYERS } from '../../store/gameStore';
-import { fetchTourEvents, fetchHandicapScores } from '../../lib/db';
+import { fetchTourEvents } from '../../lib/db';
 import type { HistoryRound } from '../../lib/db';
 import { seasonLeaderboard, eventPoints } from '../../lib/tour';
-import { handicapIndex } from '../../lib/handicap';
-import type { PlayerId, TourEvent, HandicapScore, SeasonEntry, TourPlayerPoints } from '../../lib/types';
+import { teamTotals, calcBestBall, stablefordPoints, calcWolf } from '../../lib/scoring';
+import type { PlayerId, TourEvent, SeasonEntry, TourPlayerPoints } from '../../lib/types';
 
 const CURRENT_SEASON = 2026;
 
@@ -125,6 +125,48 @@ function LegendChip({ children }: { children: React.ReactNode }) {
   );
 }
 
+function calcTeamScores(
+  event: TourEvent,
+  round: HistoryRound,
+): { A: number; B: number } {
+  const hcps = event.roundHandicaps as Record<string, number>;
+  const ta: Record<string, 'A' | 'B'> = {
+    ...Object.fromEntries(event.teamA.map(id => [id, 'A' as const])),
+    ...Object.fromEntries(event.teamB.map(id => [id, 'B' as const])),
+  };
+  if (event.teamFormat === 'multiplier') {
+    const t = teamTotals(PLAYERS, round.scores, round.pars, hcps, round.indices, ta);
+    return { A: t.totA, B: t.totB };
+  }
+  if (event.teamFormat === 'bestBall') {
+    const t = calcBestBall(PLAYERS, round.scores, round.pars, hcps, round.indices, ta);
+    return { A: t.totA, B: t.totB };
+  }
+  // worstBall — min stableford per team per hole
+  let totA = 0, totB = 0;
+  for (let h = 0; h < 18; h++) {
+    for (const team of ['A', 'B'] as const) {
+      const pids = team === 'A' ? event.teamA : event.teamB;
+      const pts = pids.map(pid =>
+        stablefordPoints(round.scores[pid]?.[h] ?? 0, round.pars[h], pid, h, hcps, round.indices) ?? 0,
+      );
+      const worst = Math.min(...pts);
+      if (team === 'A') totA += worst; else totB += worst;
+    }
+  }
+  return { A: totA, B: totB };
+}
+
+function playerGross(round: HistoryRound, pid: string): number {
+  return (round.scores[pid] ?? []).reduce((s, v) => s + (v || 0), 0);
+}
+
+function playerStbl(round: HistoryRound, event: TourEvent, pid: string): number {
+  const hcps = event.roundHandicaps as Record<string, number>;
+  return (round.scores[pid] ?? []).reduce((sum, strokes, h) =>
+    sum + (stablefordPoints(strokes, round.pars[h], pid, h, hcps, round.indices) ?? 0), 0);
+}
+
 // ─── Event Results Card ───────────────────────────────────────────────────────
 
 function EventResultsCard({
@@ -147,6 +189,7 @@ function EventResultsCard({
         const pts: Record<string, TourPlayerPoints> | null = round ? eventPoints(round, event) : null;
         const isOpen = expanded === event.id;
         const month = fmtDate(event.date);
+        const isWolf = !event.teamWinner && round?.activeGames?.wolf === true;
 
         return (
           <div key={event.id} style={{ marginBottom: 10 }}>
@@ -161,14 +204,15 @@ function EventResultsCard({
             >
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--gold)', minWidth: 60 }}>{month}</span>
               <span style={{ fontSize: 13, color: 'var(--cream)', flex: 1 }}>{event.courseName}</span>
-              {event.teamWinner && (
-                <span style={{
-                  fontSize: 10, background: 'rgba(201,168,76,0.15)', borderRadius: 4,
-                  padding: '2px 6px', color: 'var(--gold)',
-                }}>
-                  Team {event.teamWinner} Win
-                </span>
-              )}
+              <span style={{
+                fontSize: 9, fontWeight: 600, letterSpacing: 0.4, padding: '2px 5px', borderRadius: 3,
+                background: event.source === 'app' ? 'rgba(78,186,122,0.15)' : 'rgba(201,168,76,0.12)',
+                color: event.source === 'app' ? 'var(--green-bright)' : 'rgba(201,168,76,0.7)',
+                border: event.source === 'app' ? '1px solid rgba(78,186,122,0.3)' : '1px solid rgba(201,168,76,0.25)',
+                flexShrink: 0,
+              }}>
+                {event.source === 'app' ? '📱 App' : '📊 Excel'}
+              </span>
               <span style={{ fontSize: 12, color: 'rgba(245,240,232,0.4)' }}>{isOpen ? '▲' : '▼'}</span>
             </button>
 
@@ -178,7 +222,7 @@ function EventResultsCard({
                   display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10,
                   fontSize: 10, color: 'rgba(245,240,232,0.45)',
                 }}>
-                  <span>{fmtFormat(event.teamFormat)}</span>
+                  <span>{isWolf ? 'Wolf' : fmtFormat(event.teamFormat)}</span>
                   <span>·</span>
                   <span>Rating {event.courseRating} / Slope {event.slopeRating}</span>
                   {event.ctpWinner && <><span>·</span><span>📍 CTP: {playerById(event.ctpWinner)?.name}</span></>}
@@ -186,40 +230,101 @@ function EventResultsCard({
                   {event.poopWinner && <><span>·</span><span>💩 {playerById(event.poopWinner)?.name}</span></>}
                 </div>
 
-                {pts ? (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                        <th style={{ textAlign: 'left', fontSize: 10, color: 'rgba(245,240,232,0.35)', paddingBottom: 5, fontWeight: 500 }}>Player</th>
-                        <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', paddingBottom: 5, fontWeight: 500 }}>Net</th>
-                        <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', paddingBottom: 5, fontWeight: 500 }}>3+</th>
-                        <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', paddingBottom: 5, fontWeight: 500 }}>Team</th>
-                        <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', paddingBottom: 5, fontWeight: 500 }}>Bns</th>
-                        <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', paddingBottom: 5, fontWeight: 500, paddingLeft: 6 }}>Total</th>
+                {pts ? (() => {
+                  const teamScore = round ? calcTeamScores(event, round) : null;
+                  const teamAPlayers = PLAYERS.filter(p => event.teamA.includes(p.id as PlayerId));
+                  const teamBPlayers = PLAYERS.filter(p => event.teamB.includes(p.id as PlayerId));
+                  const worstPutter = Object.entries(event.threePuttCounts ?? {})
+                    .filter(([, n]) => n > 0)
+                    .sort(([, a], [, b]) => b - a)[0];
+                  const thR: React.CSSProperties = { textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', paddingBottom: 5, fontWeight: 500, paddingLeft: 5 };
+                  const mono: React.CSSProperties = { textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: 12, paddingLeft: 5 };
+                  const wolfResults = isWolf
+                    ? calcWolf(PLAYERS, round!.scores, round!.pars, event.roundHandicaps as Record<string, number>, round!.indices, round!.wolfOrder, round!.wolfHoles, round!.wolfOverrides)
+                    : null;
+                  const wolfTotals: Record<string, number> = {};
+                  if (wolfResults) {
+                    for (const hr of wolfResults) Object.entries(hr.pm).forEach(([pid, v]) => { wolfTotals[pid] = (wolfTotals[pid] ?? 0) + v; });
+                  }
+                  const renderPlayerRow = (pl: typeof PLAYERS[0]) => {
+                    const p = pts[pl.id as PlayerId];
+                    const gross = playerGross(round!, pl.id);
+                    const net = gross > 0 ? gross - (event.roundHandicaps[pl.id as PlayerId] ?? 0) : 0;
+                    const isLD = event.ldWinner === pl.id;
+                    const isCTP = event.ctpWinner === pl.id;
+                    return (
+                      <tr key={pl.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <td style={{ paddingTop: 7, paddingBottom: 7 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <PlayerDot pid={pl.id} size={18} />
+                            <span style={{ fontSize: 12, color: pl.color }}>{pl.name}</span>
+                          </div>
+                        </td>
+                        <td style={mono}>{gross > 0 ? gross : '—'}</td>
+                        <td style={mono}>{net > 0 ? net : '—'}</td>
+                        <td style={mono}>{p.net}</td>
+                        <td style={{ ...mono, color: p.threePlus > 0 ? 'var(--cream)' : 'rgba(245,240,232,0.3)' }}>{p.threePlus > 0 ? p.threePlus : '—'}</td>
+                        {isWolf && <td style={{ ...mono, color: 'var(--cream)' }}>{wolfTotals[pl.id] ?? 0}</td>}
+                        <td style={{ ...mono, color: p.team > 0 ? 'var(--green-bright)' : 'rgba(245,240,232,0.3)' }}>{p.team > 0 ? p.team : '—'}</td>
+                        <td style={{ ...mono, color: isLD ? 'var(--green-bright)' : 'rgba(245,240,232,0.3)' }}>{isLD ? p.par5 : '—'}</td>
+                        <td style={{ ...mono, color: isCTP ? 'var(--green-bright)' : 'rgba(245,240,232,0.3)' }}>{isCTP ? p.par3 : '—'}</td>
+                        <td style={{ ...mono, color: 'rgba(245,240,232,0.5)' }}>{(event.threePuttCounts?.[pl.id] ?? 0) > 0 ? event.threePuttCounts![pl.id] : '—'}</td>
+                        <td style={{ ...mono, fontSize: 13, fontWeight: 700, color: 'var(--gold)' }}>{p.total}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {PLAYERS.map(pl => {
-                        const p = pts[pl.id as PlayerId];
-                        return (
-                          <tr key={pl.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                            <td style={{ paddingTop: 7, paddingBottom: 7 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <PlayerDot pid={pl.id} size={18} />
-                                <span style={{ fontSize: 12, color: pl.color }}>{pl.name}</span>
-                              </div>
-                            </td>
-                            <td style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: 12 }}>{p.net}</td>
-                            <td style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: 12 }}>{p.threePlus}</td>
-                            <td style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: 12 }}>{p.team > 0 ? <span style={{ color: 'var(--green-bright)' }}>{p.team}</span> : '—'}</td>
-                            <td style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: 12 }}>{p.par3 + p.par5 > 0 ? p.par3 + p.par5 : '—'}</td>
-                            <td style={{ textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, color: 'var(--gold)', paddingLeft: 6 }}>{p.total}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                ) : (
+                    );
+                  };
+                  const renderTeamHeader = (team: 'A' | 'B', score: number) => {
+                    const isWinner = event.teamWinner === team;
+                    const players = team === 'A' ? teamAPlayers : teamBPlayers;
+                    return (
+                      <tr key={`team-${team}`} style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <td colSpan={9} style={{ paddingTop: 5, paddingBottom: 5 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            {players.map(p => <PlayerDot key={p.id} pid={p.id} size={14} />)}
+                            <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.35)', marginLeft: 2, textTransform: 'uppercase', letterSpacing: 0.4 }}>{fmtFormat(event.teamFormat)}</span>
+                            {isWinner && <span style={{ fontSize: 10, color: 'var(--green-bright)', marginLeft: 2 }}>✓ Win</span>}
+                          </div>
+                        </td>
+                        <td style={{ ...mono, fontSize: 13, fontWeight: 700, color: isWinner ? 'var(--green-bright)' : 'rgba(245,240,232,0.5)', paddingTop: 5, paddingBottom: 5 }}>{score}</td>
+                      </tr>
+                    );
+                  };
+                  return (
+                    <>
+                      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 340 }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                              <th style={{ textAlign: 'left', fontSize: 10, color: 'rgba(245,240,232,0.35)', paddingBottom: 5, fontWeight: 500 }}>Player</th>
+                              <th style={thR}>Gross</th>
+                              <th style={thR}>Net</th>
+                              <th style={thR}>Pts</th>
+                              <th style={thR}>3+</th>
+                              {isWolf && <th style={thR}>Wolf</th>}
+                              <th style={thR}>Team</th>
+                              <th style={thR}>LD</th>
+                              <th style={thR}>CTP</th>
+                              <th style={thR}>3P</th>
+                              <th style={{ ...thR, color: 'var(--gold)' }}>Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {isWolf ? (
+                              PLAYERS.map(pl => renderPlayerRow(pl))
+                            ) : (
+                              <>
+                                {teamScore && renderTeamHeader('A', teamScore.A)}
+                                {teamAPlayers.map(pl => renderPlayerRow(pl))}
+                                {teamScore && renderTeamHeader('B', teamScore.B)}
+                                {teamBPlayers.map(pl => renderPlayerRow(pl))}
+                              </>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })() : (
                   <div style={{ fontSize: 12, color: 'rgba(245,240,232,0.3)', padding: '8px 0' }}>
                     Round data not found — sync history to load scores.
                   </div>
@@ -233,69 +338,11 @@ function EventResultsCard({
   );
 }
 
-// ─── Handicap Card ────────────────────────────────────────────────────────────
-
-function HandicapCard({ scoresByPlayer }: { scoresByPlayer: Record<string, HandicapScore[]> }) {
-  return (
-    <div className="card">
-      <div className="card-title">⛳ Handicap Indices</div>
-      {PLAYERS.map(pl => {
-        const scores = scoresByPlayer[pl.id] ?? [];
-        const idx = handicapIndex(scores);
-        const recent = scores.slice(-5);
-        return (
-          <div key={pl.id} style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)',
-          }}>
-            <PlayerDot pid={pl.id} size={28} />
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: pl.color }}>{pl.name}</span>
-                <span style={{
-                  fontFamily: "'DM Mono', monospace", fontSize: 16, fontWeight: 700,
-                  color: 'var(--gold)',
-                }}>
-                  {idx.toFixed(1)}
-                </span>
-              </div>
-              <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
-                {recent.map((s, i) => (
-                  <span key={i} style={{
-                    fontFamily: "'DM Mono', monospace", fontSize: 10,
-                    background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: 4, padding: '2px 5px',
-                    color: s.differential < 0 ? 'var(--green-bright)' : 'rgba(245,240,232,0.5)',
-                  }}>
-                    {s.differential >= 0 ? '+' : ''}{s.differential.toFixed(1)}
-                  </span>
-                ))}
-                {scores.length > 5 && (
-                  <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.2)', alignSelf: 'center' }}>
-                    +{scores.length - 5} more
-                  </span>
-                )}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.3)' }}>
-              {scores.length} rounds
-            </div>
-          </div>
-        );
-      })}
-      <div style={{ marginTop: 8, fontSize: 10, color: 'rgba(245,240,232,0.25)' }}>
-        WHS: avg best 8 of last 20 differentials
-      </div>
-    </div>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TourPage() {
   const [events,    setEvents]    = useState<TourEvent[]>([]);
   const [rounds,    setRounds]    = useState<HistoryRound[]>([]);
-  const [hScores,   setHScores]   = useState<HandicapScore[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [cloudMsg,  setCloudMsg]  = useState('');
 
@@ -308,24 +355,16 @@ export default function TourPage() {
 
   async function loadData(localRounds: HistoryRound[]) {
     setLoading(true);
-    const [evts, scores] = await Promise.all([
-      fetchTourEvents(CURRENT_SEASON),
-      fetchHandicapScores(),
-    ]);
+    const evts = await fetchTourEvents(CURRENT_SEASON);
     setEvents(evts);
-    setHScores(scores);
     setRounds(localRounds);
     setLoading(false);
   }
 
   async function syncHandicap() {
     setCloudMsg('⏳ Syncing…');
-    const [evts, scores] = await Promise.all([
-      fetchTourEvents(CURRENT_SEASON),
-      fetchHandicapScores(),
-    ]);
+    const evts = await fetchTourEvents(CURRENT_SEASON);
     setEvents(evts);
-    setHScores(scores);
     setCloudMsg('✅ Synced');
     setTimeout(() => setCloudMsg(''), 2500);
   }
@@ -339,11 +378,6 @@ export default function TourPage() {
   }
 
   const leaderboard = events.length ? seasonLeaderboard(events, roundsByEventId) : [];
-
-  const scoresByPlayer: Record<string, HandicapScore[]> = {};
-  for (const s of hScores) {
-    (scoresByPlayer[s.playerId] ??= []).push(s);
-  }
 
   return (
     <>
@@ -385,7 +419,6 @@ export default function TourPage() {
           <>
             {leaderboard.length > 0 && <LeaderboardCard entries={leaderboard} />}
             <EventResultsCard events={events} roundsByEventId={roundsByEventId} />
-            <HandicapCard scoresByPlayer={scoresByPlayer} />
           </>
         )}
       </div>

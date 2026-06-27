@@ -17,7 +17,7 @@ const MODE_BTN_BASE: React.CSSProperties = {
 
 function modeStyle(active: boolean): React.CSSProperties {
   return active
-    ? { ...MODE_BTN_BASE, background: 'rgba(78,186,122,0.18)', borderColor: 'var(--green-bright)', color: 'var(--green-bright)' }
+    ? { ...MODE_BTN_BASE, background: 'rgba(34,197,94,0.18)', borderColor: 'var(--green-bright)', color: 'var(--green-bright)' }
     : { ...MODE_BTN_BASE, background: 'rgba(245,240,232,0.04)', borderColor: 'rgba(245,240,232,0.12)', color: 'rgba(245,240,232,0.45)' };
 }
 

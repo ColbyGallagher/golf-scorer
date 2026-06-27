@@ -99,6 +99,23 @@ export default function HistoryPage() {
       setCloudMsg('⚠️ Cloud save failed — saved locally');
     }
     setTimeout(() => setCloudMsg(''), 3000);
+
+    for (const pl of PLAYERS) {
+      const gross = (entry.scores[pl.id] ?? []).reduce((s, v) => s + (v || 0), 0);
+      if (gross === 0) continue;
+      const diff = differential(gross, entry.courseRating, entry.slopeRating);
+      await addHandicapScore({
+        playerId: pl.id as PlayerId,
+        date: entry.date.slice(0, 10),
+        course: entry.courseName,
+        score: gross,
+        rating: entry.courseRating,
+        slope: entry.slopeRating,
+        differential: Math.round(diff * 10) / 10,
+        source: 'app',
+      });
+    }
+
     setTourModal(entry);
   }
 
@@ -257,8 +274,8 @@ function RoundCard({
   const ldCount: Record<string, number>  = {};
   for (let h = 0; h < 18; h++) {
     const cw = r.compWinners?.[h];
-    if (cw?.ctp) ctpCount[cw.ctp] = (ctpCount[cw.ctp] || 0) + 1;
-    if (cw?.ld)  ldCount[cw.ld]   = (ldCount[cw.ld]   || 0) + 1;
+    if (cw?.ctp && cw.ctp !== 'none') ctpCount[cw.ctp] = (ctpCount[cw.ctp] || 0) + 1;
+    if (cw?.ld  && cw.ld  !== 'none') ldCount[cw.ld]   = (ldCount[cw.ld]   || 0) + 1;
   }
   const hasCtp = ag.ctp  && Object.keys(ctpCount).length > 0;
   const hasLd  = ag.longDrive && Object.keys(ldCount).length > 0;
@@ -442,14 +459,14 @@ function HistoryDetail({ round: r, onClose }: { round: HistoryRound; onClose: ()
       </div>
       <div style={{ padding: 14 }}>
         {diff > 0 && (
-          <div className="result-banner" style={{ background: 'rgba(78,186,122,0.1)', border: '1px solid rgba(78,186,122,0.25)' }}>
+          <div className="result-banner" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}>
             <div className="result-label">Winner</div>
             <div className="result-text" style={{ color: 'var(--team-a)' }}>{hdTeamAName}</div>
             <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)', marginTop: 3 }}>{diff} pts ahead</div>
           </div>
         )}
         {diff < 0 && (
-          <div className="result-banner" style={{ background: 'rgba(85,153,204,0.1)', border: '1px solid rgba(85,153,204,0.25)' }}>
+          <div className="result-banner" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)' }}>
             <div className="result-label">Winner</div>
             <div className="result-text" style={{ color: 'var(--team-b)' }}>{hdTeamBName}</div>
             <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)', marginTop: 3 }}>{Math.abs(diff)} pts ahead</div>
@@ -562,6 +579,7 @@ function TourEventModal({ round, onClose }: { round: HistoryRound; onClose: () =
       threePuttCounts,
       poopWinner,
       roundId: round.id,
+      source: 'app' as const,
     };
     await saveTourEvent(event);
     for (const pl of PLAYERS) {

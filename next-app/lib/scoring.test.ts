@@ -18,10 +18,10 @@ import type { Player, WolfHole } from './types';
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const PLAYERS: Player[] = [
-  { id: 'colby', name: 'Colby', team: 'A', color: '#4eba7a' },
-  { id: 'mitch', name: 'Mitch', team: 'A', color: '#84d4a4' },
-  { id: 'dave',  name: 'Dave',  team: 'B', color: '#5599cc' },
-  { id: 'scott', name: 'Scott', team: 'B', color: '#88bbee' },
+  { id: 'colby', name: 'Colby', team: 'A', color: '#22c55e' },
+  { id: 'mitch', name: 'Mitch', team: 'A', color: '#f97316' },
+  { id: 'dave',  name: 'Dave',  team: 'B', color: '#3b82f6' },
+  { id: 'scott', name: 'Scott', team: 'B', color: '#ef4444' },
 ];
 
 // Shortland Waters hole data

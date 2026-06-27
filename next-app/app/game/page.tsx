@@ -243,9 +243,9 @@ export default function GamePage() {
           {saveMsg && (
             <div style={{
               padding: '10px 12px', borderRadius: 8, marginBottom: 14, fontSize: 13, textAlign: 'center',
-              background: saveMsg.startsWith('✅') ? 'rgba(78,186,122,0.1)' : 'rgba(224,85,85,0.1)',
+              background: saveMsg.startsWith('✅') ? 'rgba(34,197,94,0.1)' : 'rgba(224,85,85,0.1)',
               color: saveMsg.startsWith('✅') ? 'var(--green-bright)' : 'var(--red)',
-              border: `1px solid ${saveMsg.startsWith('✅') ? 'rgba(78,186,122,0.25)' : 'rgba(224,85,85,0.3)'}`,
+              border: `1px solid ${saveMsg.startsWith('✅') ? 'rgba(34,197,94,0.25)' : 'rgba(224,85,85,0.3)'}`,
             }}>
               {saveMsg}
             </div>

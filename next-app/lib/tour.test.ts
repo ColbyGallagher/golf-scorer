@@ -56,6 +56,7 @@ const JAN_EVENT: TourEvent = {
   threePuttCounts: { mitch: 5, colby: 4, scott: 1, dave: 4 },
   poopWinner: 'mitch',
   roundId: 1,
+  source: 'excel' as const,
 };
 
 // Feb – Toronto (8/5/2026)
@@ -107,6 +108,7 @@ const FEB_EVENT: TourEvent = {
   threePuttCounts: { mitch: 4, colby: 2, scott: 0, dave: 4 },
   poopWinner: 'mitch',
   roundId: 2,
+  source: 'excel' as const,
 };
 
 // Mar – Shortland (1/6/2026)
@@ -158,6 +160,7 @@ const MAR_EVENT: TourEvent = {
   threePuttCounts: { mitch: 1, colby: 2, scott: 4, dave: 4 },
   poopWinner: 'scott',
   roundId: 3,
+  source: 'excel' as const,
 };
 
 // ─── netScorePoints ───────────────────────────────────────────────────────────

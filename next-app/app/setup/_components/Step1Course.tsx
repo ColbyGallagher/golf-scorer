@@ -94,6 +94,7 @@ export default function Step1Course({ onNext }: Props) {
   const [nearbyCourseNames, setNearbyCourseNames] = useState<string[]>([]);
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'fetching' | 'ready'>('idle');
   const [userSuburb, setUserSuburb] = useState('');
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -102,6 +103,7 @@ export default function Step1Course({ onNext }: Props) {
       async pos => {
         setGpsStatus('fetching');
         const { latitude: lat, longitude: lng } = pos.coords;
+        setUserCoords({ lat, lng });
         try {
           const [overpassRes, geocodeRes] = await Promise.all([
             fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(
@@ -126,15 +128,54 @@ export default function Step1Course({ onNext }: Props) {
     );
   }, []);
 
+  // Auto-load nearest course when GPS resolves
+  useEffect(() => {
+    if (gpsStatus !== 'ready' || nearbyCourseNames.length === 0) return;
+    if (autoLoadedRef.current || teeApplied || courseName) return;
+    autoLoadedRef.current = true;
+
+    async function autoLoad() {
+      let courses = allCourses;
+      if (courses.length === 0) {
+        courses = await fetchSavedCourses();
+        setAllCourses(courses);
+      }
+      const libraryMatch = courses
+        .filter(c => getNearbyScore(c.course_name, nearbyCourseNames) > 0)
+        .sort((a, b) => getNearbyScore(b.course_name, nearbyCourseNames) - getNearbyScore(a.course_name, nearbyCourseNames))[0];
+
+      if (libraryMatch) {
+        selectCourse(libraryMatch);
+      } else {
+        await fetchNearbyFromApi(nearbyCourseNames[0]);
+      }
+    }
+    autoLoad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gpsStatus, nearbyCourseNames]);
+
   // Course library search
   const [allCourses,   setAllCourses]   = useState<SavedCourse[]>([]);
   const [courseQuery,  setCourseQuery]  = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
 
+  const autoLoadedRef = useRef(false);
+
   // Scan result (from library or photo scan)
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanFile,   setScanFile]   = useState<File | null>(null);
   const [scanSaved,  setScanSaved]  = useState(false);
+
+  // Auto-select tee when a course loads
+  useEffect(() => {
+    if (!scanResult || teeApplied) return;
+    const teeNames = Object.keys(scanResult.tees);
+    if (teeNames.length === 0) return;
+    const preferred = ['yellow', 'white', 'red', 'blue', 'black'];
+    const tee = preferred.find(t => teeNames.includes(t)) ?? teeNames[0];
+    applyTee(tee);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanResult]);
 
   // Scan status
   const [scanning,  setScanning]  = useState(false);
@@ -257,7 +298,7 @@ export default function Step1Course({ onNext }: Props) {
         return;
       }
       // Save + refresh library in background (optimistic select below)
-      saveApiCourseToCloud(result.course_name, result.tees)
+      saveApiCourseToCloud(result.course_name, result.tees, userCoords?.lat, userCoords?.lng)
         .then(() => fetchSavedCourses())
         .then(courses => {
           setAllCourses(courses);
@@ -368,6 +409,8 @@ export default function Step1Course({ onNext }: Props) {
         teeName,
         scanResult.tees,
         scanFile,
+        userCoords?.lat,
+        userCoords?.lng,
       ).catch(console.error);
     }
   }
@@ -455,7 +498,7 @@ export default function Step1Course({ onNext }: Props) {
               <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.35)' }}>📍 Finding courses…</span>
             )}
             {gpsStatus === 'ready' && nearbyCourseNames.length > 0 && (
-              <span style={{ fontSize: 10, color: 'rgba(78,186,122,0.7)' }}>
+              <span style={{ fontSize: 10, color: 'rgba(34,197,94,0.7)' }}>
                 📍{userSuburb ? ` ${userSuburb} —` : ''} {nearbyCourseNames.length} course{nearbyCourseNames.length !== 1 ? 's' : ''} near you
               </span>
             )}
@@ -487,7 +530,7 @@ export default function Step1Course({ onNext }: Props) {
               {/* Nearby library courses */}
               {nearbyLibraryHits.length > 0 && (
                 <>
-                  <div style={{ padding: '6px 13px 4px', fontSize: 10, color: 'rgba(78,186,122,0.7)', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ padding: '6px 13px 4px', fontSize: 10, color: 'rgba(34,197,94,0.7)', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     📍 Near you
                   </div>
                   {nearbyLibraryHits.map(c => {
@@ -498,7 +541,7 @@ export default function Step1Course({ onNext }: Props) {
                         key={c.id}
                         onMouseDown={() => selectCourse(c)}
                         style={{ padding: '10px 13px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                        onMouseOver={e => (e.currentTarget.style.background = 'rgba(78,186,122,0.09)')}
+                        onMouseOver={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.09)')}
                         onMouseOut={e => (e.currentTarget.style.background = '')}
                       >
                         <div style={{ fontSize: 13, fontWeight: 600 }}>{c.course_name}</div>
@@ -527,7 +570,7 @@ export default function Step1Course({ onNext }: Props) {
                         key={c.id}
                         onMouseDown={() => selectCourse(c)}
                         style={{ padding: '10px 13px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                        onMouseOver={e => (e.currentTarget.style.background = 'rgba(78,186,122,0.09)')}
+                        onMouseOver={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.09)')}
                         onMouseOut={e => (e.currentTarget.style.background = '')}
                       >
                         <div style={{ fontSize: 13, fontWeight: 600 }}>{c.course_name}</div>
@@ -567,7 +610,7 @@ export default function Step1Course({ onNext }: Props) {
                           cursor: clickable ? 'pointer' : 'default',
                           opacity: notFound ? 0.4 : 0.85,
                         }}
-                        onMouseOver={e => { if (clickable) e.currentTarget.style.background = 'rgba(78,186,122,0.09)'; }}
+                        onMouseOver={e => { if (clickable) e.currentTarget.style.background = 'rgba(34,197,94,0.09)'; }}
                         onMouseOut={e => { e.currentTarget.style.background = ''; }}
                       >
                         <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--cream)' }}>{name}</div>
@@ -605,9 +648,9 @@ export default function Step1Course({ onNext }: Props) {
         {(scanMsg || scanError) && (
           <div style={{
             padding: '8px 11px', marginBottom: 10, borderRadius: 8, fontSize: 12,
-            background: scanError ? 'rgba(224,85,85,0.1)' : 'rgba(78,186,122,0.12)',
+            background: scanError ? 'rgba(224,85,85,0.1)' : 'rgba(34,197,94,0.12)',
             color: scanError ? 'var(--red)' : 'var(--green-bright)',
-            border: `1px solid ${scanError ? 'rgba(224,85,85,0.3)' : 'rgba(78,186,122,0.25)'}`,
+            border: `1px solid ${scanError ? 'rgba(224,85,85,0.3)' : 'rgba(34,197,94,0.25)'}`,
           }}>
             {scanError || scanMsg}
           </div>
@@ -709,8 +752,8 @@ export default function Step1Course({ onNext }: Props) {
           {indicesSaveMsg && (
             <div style={{
               padding: '8px 11px', marginBottom: 10, borderRadius: 8, fontSize: 12,
-              background: 'rgba(78,186,122,0.12)', color: 'var(--green-bright)',
-              border: '1px solid rgba(78,186,122,0.25)',
+              background: 'rgba(34,197,94,0.12)', color: 'var(--green-bright)',
+              border: '1px solid rgba(34,197,94,0.25)',
             }}>
               {indicesSaveMsg}
             </div>

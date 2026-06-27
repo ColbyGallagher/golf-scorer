@@ -27,6 +27,7 @@ export default function CompsPage() {
 
   function winnerEl(pid: string) {
     if (!pid) return <span style={{ color: 'rgba(245,240,232,0.2)' }}>— TBD —</span>;
+    if (pid === 'none') return <span style={{ color: 'rgba(245,240,232,0.3)' }}>No Result</span>;
     const pl = PLAYERS.find(x => x.id === pid);
     return <span style={{ color: pl?.color, fontWeight: 600 }}>{pl?.name}</span>;
   }

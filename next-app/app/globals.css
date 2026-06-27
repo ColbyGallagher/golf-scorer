@@ -4,14 +4,14 @@
   --green-deep:   #0d2818;
   --green-mid:    #1a4a2e;
   --green-light:  #2d7a4f;
-  --green-bright: #4eba7a;
+  --green-bright: #22c55e;
   --gold:         #c9a84c;
   --gold-light:   #e8c97a;
   --cream:        #f5f0e8;
   --red:          #e05555;
-  --blue:         #5599cc;
-  --team-a:       #4eba7a;
-  --team-b:       #5599cc;
+  --blue:         #3b82f6;
+  --team-a:       #22c55e;
+  --team-b:       #3b82f6;
   --radius:       16px;
   --radius-sm:    10px;
 }
@@ -183,7 +183,7 @@ body {
   color: rgba(245,240,232,0.5); font-family: 'DM Mono', monospace;
 }
 .hole-dot.current { background: var(--gold); border-color: var(--gold); color: var(--green-deep); }
-.hole-dot.complete { background: rgba(78,186,122,0.2); border-color: rgba(78,186,122,0.4); color: var(--green-bright); }
+.hole-dot.complete { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.4); color: var(--green-bright); }
 
 /* ── Hole nav ── */
 .hole-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
@@ -220,13 +220,13 @@ body {
   font-size: 11px; color: rgba(245,240,232,0.5); font-family: 'DM Mono', monospace;
 }
 .hole-type-badge { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 5px 10px; border-radius: 20px; margin-left: auto; }
-.par3-badge { background: rgba(85,153,204,0.2); color: var(--blue); border: 1px solid rgba(85,153,204,0.3); }
+.par3-badge { background: rgba(59,130,246,0.2); color: var(--blue); border: 1px solid rgba(59,130,246,0.3); }
 .par4-badge { background: rgba(255,255,255,0.06); color: rgba(245,240,232,0.5); border: 1px solid rgba(255,255,255,0.08); }
 .par5-badge { background: rgba(201,168,76,0.15); color: var(--gold); border: 1px solid rgba(201,168,76,0.25); }
 
 /* ── Comp banners ── */
 .comp-banner { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 12px; font-weight: 500; }
-.ctp-banner { background: rgba(85,153,204,0.12); border: 1px solid rgba(85,153,204,0.25); color: #88bbee; }
+.ctp-banner { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); color: #60a5fa; }
 .ld-banner  { background: rgba(201,168,76,0.12);  border: 1px solid rgba(201,168,76,0.25);  color: var(--gold-light); }
 .comp-winner-select {
   margin-left: auto; padding: 4px 8px;
@@ -252,7 +252,7 @@ body {
 .pts-0  { color: var(--red);          background: rgba(224,85,85,0.12); }
 .pts-1  { color: rgba(245,240,232,0.6); background: rgba(255,255,255,0.06); }
 .pts-2  { color: var(--cream);        background: rgba(255,255,255,0.08); }
-.pts-3  { color: var(--green-bright); background: rgba(78,186,122,0.15); }
+.pts-3  { color: var(--green-bright); background: rgba(34,197,94,0.15); }
 .pts-4  { color: var(--gold);         background: rgba(201,168,76,0.15); }
 .pts-5p { color: #ff9944;             background: rgba(255,153,68,0.15); }
 .three-putt-btn { padding: 3px 7px; border-radius: 8px; background: rgba(245,240,232,0.05); border: 1px solid rgba(245,240,232,0.1); color: rgba(245,240,232,0.3); font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 600; cursor: pointer; letter-spacing: 0.3px; flex-shrink: 0; }
@@ -280,8 +280,8 @@ body {
 
 /* ── Teams / result ── */
 .team-card { border-radius: var(--radius); padding: 13px; margin-bottom: 11px; }
-.team-a-card { background: linear-gradient(135deg, rgba(78,186,122,0.12), rgba(13,40,24,0.5)); border: 1px solid rgba(78,186,122,0.2); }
-.team-b-card { background: linear-gradient(135deg, rgba(85,153,204,0.12), rgba(13,40,24,0.5)); border: 1px solid rgba(85,153,204,0.2); }
+.team-a-card { background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(13,40,24,0.5)); border: 1px solid rgba(34,197,94,0.2); }
+.team-b-card { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(13,40,24,0.5)); border: 1px solid rgba(59,130,246,0.2); }
 .team-name { font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; margin-bottom: 6px; }
 .team-a-card .team-name { color: var(--team-a); }
 .team-b-card .team-name { color: var(--team-b); }
@@ -319,4 +319,4 @@ body {
 .history-games-table tbody tr + tr td { border-top: 1px solid rgba(255,255,255,0.04); }
 .history-detail-overlay { position: fixed; inset: 0; background: var(--green-deep); z-index: 200; overflow-y: auto; }
 .history-detail-header { background: linear-gradient(160deg, var(--green-mid), var(--green-deep)); padding: 16px 16px 12px; border-bottom: 1px solid rgba(201,168,76,0.2); position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px; }
-.save-round-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, rgba(78,186,122,0.25), rgba(78,186,122,0.12)); border: 1px solid rgba(78,186,122,0.35); border-radius: var(--radius-sm); color: var(--green-bright); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; margin-bottom: 12px; transition: background 0.2s; }
+.save-round-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, rgba(34,197,94,0.25), rgba(34,197,94,0.12)); border: 1px solid rgba(34,197,94,0.35); border-radius: var(--radius-sm); color: var(--green-bright); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; margin-bottom: 12px; transition: background 0.2s; }

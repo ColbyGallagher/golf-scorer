@@ -265,8 +265,8 @@ export default function Step2GameFormat({ onBack, onNext }: Props) {
                           cursor: noSI ? 'not-allowed' : row.locked ? 'default' : 'pointer',
                           userSelect: 'none',
                           transition: 'background 0.15s, border 0.15s',
-                          background: noSI ? 'rgba(245,240,232,0.01)' : on ? 'rgba(78,186,122,0.07)' : 'rgba(245,240,232,0.02)',
-                          border: `1px solid ${noSI ? 'rgba(245,240,232,0.04)' : on ? 'rgba(78,186,122,0.18)' : 'rgba(245,240,232,0.07)'}`,
+                          background: noSI ? 'rgba(245,240,232,0.01)' : on ? 'rgba(34,197,94,0.07)' : 'rgba(245,240,232,0.02)',
+                          border: `1px solid ${noSI ? 'rgba(245,240,232,0.04)' : on ? 'rgba(34,197,94,0.18)' : 'rgba(245,240,232,0.07)'}`,
                           borderBottom: isBestBallNoSI && on ? 'none' : undefined,
                           opacity: noSI ? 0.38 : 1,
                         }}
@@ -299,7 +299,7 @@ export default function Step2GameFormat({ onBack, onNext }: Props) {
                         <div style={{
                           padding: '7px 11px', fontSize: 10,
                           background: 'rgba(201,168,76,0.08)',
-                          border: '1px solid rgba(78,186,122,0.18)',
+                          border: '1px solid rgba(34,197,94,0.18)',
                           borderTop: '1px solid rgba(201,168,76,0.2)',
                           borderRadius: '0 0 9px 9px',
                           color: 'rgba(201,168,76,0.8)',

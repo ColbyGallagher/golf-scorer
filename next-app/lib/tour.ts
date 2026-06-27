@@ -1,8 +1,9 @@
-import { stablefordPoints } from './scoring';
-import type { PlayerId, TourEvent, TourPlayerPoints, SeasonEntry } from './types';
+import { stablefordPoints, calcWolf } from './scoring';
+import type { PlayerId, TourEvent, TourPlayerPoints, SeasonEntry, Player } from './types';
 import type { HistoryRound } from './db';
 
 const PLAYER_IDS: PlayerId[] = ['colby', 'mitch', 'dave', 'scott'];
+const PLAYER_STUBS: Player[] = PLAYER_IDS.map(id => ({ id, name: '', team: 'A' as const, color: '' }));
 
 // Net score points bracket (gross − round handicap → bracket)
 export function netScorePoints(net: number): number {
@@ -28,14 +29,33 @@ export function threePlusPoints(
   }, 0);
 }
 
+
 // Compute all 5 point components for every player in a single event.
 // Uses round's raw handicaps (not WHS-adjusted) for both net and stableford,
 // matching the spreadsheet's approach.
+// Wolf rounds (no team winner + round.activeGames.wolf): top 2 wolf game scores get 10 team pts.
 export function eventPoints(
   round: HistoryRound,
   event: TourEvent,
 ): Record<PlayerId, TourPlayerPoints> {
   const hcps = event.roundHandicaps as Record<string, number>;
+
+  // Wolf: rank by wolf game points (not stableford), top 2 get 10 team pts
+  const isWolf = !event.teamWinner && round.activeGames?.wolf === true;
+  const wolfWinners = new Set<string>();
+  if (isWolf) {
+    const wolfHoleResults = calcWolf(PLAYER_STUBS, round.scores, round.pars, hcps, round.indices, round.wolfOrder, round.wolfHoles, round.wolfOverrides ?? {});
+    const wolfTotals: Record<string, number> = {};
+    for (const hr of wolfHoleResults) {
+      for (const [pid, v] of Object.entries(hr.pm)) {
+        wolfTotals[pid] = (wolfTotals[pid] ?? 0) + v;
+      }
+    }
+    const ranked = [...PLAYER_IDS].sort((a, b) => (wolfTotals[b] ?? 0) - (wolfTotals[a] ?? 0));
+    wolfWinners.add(ranked[0]);
+    wolfWinners.add(ranked[1]);
+  }
+
   return Object.fromEntries(
     PLAYER_IDS.map(pid => {
       const gross = (round.scores[pid] ?? []).reduce((s, v) => s + (v || 0), 0);
@@ -43,7 +63,9 @@ export function eventPoints(
       const netPts = gross > 0 ? netScorePoints(net) : 0;
       const threePlus = threePlusPoints(pid, round.scores, round.pars, hcps, round.indices);
       const playerTeam: 'A' | 'B' = event.teamA.includes(pid) ? 'A' : 'B';
-      const teamPts = event.teamWinner === playerTeam ? 10 : 0;
+      const teamPts = event.teamWinner
+        ? (event.teamWinner === playerTeam ? 10 : 0)
+        : (wolfWinners.has(pid) ? 10 : 0);
       const par3Pts = event.ctpWinner === pid ? 5 : 0;
       const par5Pts = event.ldWinner === pid ? 5 : 0;
       const total = netPts + threePlus + teamPts + par3Pts + par5Pts;

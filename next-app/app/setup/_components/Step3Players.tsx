@@ -158,8 +158,8 @@ export default function Step3Players({ onBack }: Props) {
             {(['A', 'B'] as Team[]).map(team => {
               const teamPlayers = PLAYERS.filter(p => teamAssignments[p.id as PlayerId] === team);
               const color = team === 'A' ? 'var(--team-a)' : 'var(--team-b)';
-              const bg    = team === 'A' ? 'rgba(78,186,122,0.08)' : 'rgba(85,153,204,0.08)';
-              const border= team === 'A' ? 'rgba(78,186,122,0.2)' : 'rgba(85,153,204,0.2)';
+              const bg    = team === 'A' ? 'rgba(34,197,94,0.08)' : 'rgba(59,130,246,0.08)';
+              const border= team === 'A' ? 'rgba(34,197,94,0.2)' : 'rgba(59,130,246,0.2)';
               return (
                 <div key={team} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: 11 }}>
                   <div style={{ fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color, marginBottom: 5 }}>Team {team}</div>

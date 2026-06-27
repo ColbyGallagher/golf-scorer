@@ -143,6 +143,7 @@ const TOUR_EVENTS = [
     three_putt_counts:  { mitch: 5, colby: 4, scott: 1, dave: 4 },
     poop_winner:        'mitch',
     round_id:           JAN_ID,
+    source:             'excel',
   },
   {
     id:                 'feb-2026',
@@ -163,6 +164,7 @@ const TOUR_EVENTS = [
     three_putt_counts:  { mitch: 4, colby: 2, scott: 0, dave: 4 },
     poop_winner:        'mitch',
     round_id:           FEB_ID,
+    source:             'excel',
   },
   {
     id:                 'mar-2026',
@@ -183,6 +185,7 @@ const TOUR_EVENTS = [
     three_putt_counts:  { mitch: 1, colby: 2, scott: 4, dave: 4 },
     poop_winner:        'scott',
     round_id:           MAR_ID,
+    source:             'excel',
   },
 ];
 
@@ -315,6 +318,7 @@ async function main() {
     rating:       s.rating,
     slope:        s.slope,
     differential: s.differential,
+    source:       'import',
   }));
   if (!dryRun) {
     const { error } = await supabase
