@@ -42,6 +42,20 @@ const TEE_STYLES: Record<string, { bg: string; border: string; color: string }> 
   black:  { bg: 'rgba(30,30,30,0.5)',     border: 'rgba(180,180,180,0.4)',  color: '#d0ccc6' },
 };
 
+function getNearbyScore(libraryName: string, nearbyNames: string[]): number {
+  const normalize = (s: string) =>
+    s.toLowerCase().replace(/\b(golf|course|club|links|country)\b/g, '').replace(/[^a-z0-9\s]/g, '').trim();
+  const lib = normalize(libraryName);
+  for (const name of nearbyNames) {
+    const near = normalize(name);
+    const libWords = lib.split(/\s+/).filter(w => w.length >= 3);
+    const nearWords = near.split(/\s+/).filter(w => w.length >= 3);
+    const hits = libWords.filter(w => nearWords.some(nw => nw.includes(w) || w.includes(nw)));
+    if (hits.length > 0) return hits.length;
+  }
+  return 0;
+}
+
 export default function Step1Course({ onNext }: Props) {
   const courseName       = useGameStore(s => s.courseName);
   const pars             = useGameStore(s => s.pars);
@@ -75,6 +89,29 @@ export default function Step1Course({ onNext }: Props) {
     } catch { /* ignore */ }
   }, []);
 
+  // GPS / nearby courses
+  const [nearbyCourseNames, setNearbyCourseNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        try {
+          const q = `[out:json][timeout:10];(way["leisure"="golf_course"](around:25000,${lat},${lng});relation["leisure"="golf_course"](around:25000,${lat},${lng}););out tags;`;
+          const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
+          const data = await res.json();
+          const names: string[] = (data.elements as Array<{ tags?: { name?: string } }>)
+            .map(el => el.tags?.name)
+            .filter((n): n is string => !!n);
+          setNearbyCourseNames([...new Set(names)]);
+        } catch { /* silent fail */ }
+      },
+      () => { /* location denied — no-op */ },
+      { timeout: 8000, maximumAge: 600000 },
+    );
+  }, []);
+
   // Course library search
   const [allCourses,   setAllCourses]   = useState<SavedCourse[]>([]);
   const [courseQuery,  setCourseQuery]  = useState('');
@@ -103,6 +140,19 @@ export default function Step1Course({ onNext }: Props) {
   const courseHits = courseQuery
     ? allCourses.filter(c => c.course_name.toLowerCase().includes(courseQuery.toLowerCase()))
     : allCourses;
+
+  const nearbyLibraryHits = nearbyCourseNames.length > 0
+    ? courseHits.filter(c => getNearbyScore(c.course_name, nearbyCourseNames) > 0)
+    : [];
+  const otherLibraryHits = nearbyCourseNames.length > 0
+    ? courseHits.filter(c => getNearbyScore(c.course_name, nearbyCourseNames) === 0)
+    : courseHits;
+  // Nearby OSM courses not yet in library (only show when no query active)
+  const nearbyNotInLibrary = !courseQuery && nearbyCourseNames.length > 0
+    ? nearbyCourseNames
+        .filter(name => allCourses.every(c => getNearbyScore(c.course_name, [name]) === 0))
+        .slice(0, 4)
+    : [];
 
   const hasDuplicateIndices = teeApplied && new Set(indices).size !== indices.length;
   const canProceed = teeApplied && holesConfirmed && !hasDuplicateIndices;
@@ -304,31 +354,89 @@ export default function Step1Course({ onNext }: Props) {
             <div style={{
               position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
               background: '#1a2412', border: '1px solid rgba(201,168,76,0.2)',
-              borderRadius: 8, marginTop: 4, maxHeight: 240, overflowY: 'auto',
+              borderRadius: 8, marginTop: 4, maxHeight: 280, overflowY: 'auto',
               boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
             }}>
-              {courseHits.length === 0 ? (
+              {/* Nearby library courses */}
+              {nearbyLibraryHits.length > 0 && (
+                <>
+                  <div style={{ padding: '6px 13px 4px', fontSize: 10, color: 'rgba(78,186,122,0.7)', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    📍 Near you
+                  </div>
+                  {nearbyLibraryHits.map(c => {
+                    const teeNames = Object.keys(c.tees || {});
+                    const date = new Date(c.scanned_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+                    return (
+                      <div
+                        key={c.id}
+                        onMouseDown={() => selectCourse(c)}
+                        style={{ padding: '10px 13px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                        onMouseOver={e => (e.currentTarget.style.background = 'rgba(78,186,122,0.09)')}
+                        onMouseOut={e => (e.currentTarget.style.background = '')}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{c.course_name}</div>
+                        <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)', marginTop: 2 }}>
+                          {teeNames.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' · ')} · {date}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Rest of library */}
+              {otherLibraryHits.length > 0 && (
+                <>
+                  {nearbyLibraryHits.length > 0 && (
+                    <div style={{ padding: '6px 13px 4px', fontSize: 10, color: 'rgba(245,240,232,0.3)', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      Library
+                    </div>
+                  )}
+                  {otherLibraryHits.map(c => {
+                    const teeNames = Object.keys(c.tees || {});
+                    const date = new Date(c.scanned_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+                    return (
+                      <div
+                        key={c.id}
+                        onMouseDown={() => selectCourse(c)}
+                        style={{ padding: '10px 13px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                        onMouseOver={e => (e.currentTarget.style.background = 'rgba(78,186,122,0.09)')}
+                        onMouseOut={e => (e.currentTarget.style.background = '')}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{c.course_name}</div>
+                        <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)', marginTop: 2 }}>
+                          {teeNames.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' · ')} · {date}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* No library results */}
+              {courseHits.length === 0 && nearbyNotInLibrary.length === 0 && (
                 <div style={{ padding: 12, fontSize: 12, color: 'rgba(245,240,232,0.3)', textAlign: 'center' }}>
                   {courseQuery ? 'No matching courses' : 'No saved courses yet'}
                 </div>
-              ) : courseHits.map(c => {
-                const teeNames = Object.keys(c.tees || {});
-                const date = new Date(c.scanned_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
-                return (
-                  <div
-                    key={c.id}
-                    onMouseDown={() => selectCourse(c)}
-                    style={{ padding: '10px 13px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                    onMouseOver={e => (e.currentTarget.style.background = 'rgba(78,186,122,0.09)')}
-                    onMouseOut={e => (e.currentTarget.style.background = '')}
-                  >
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{c.course_name}</div>
-                    <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)', marginTop: 2 }}>
-                      {teeNames.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' · ')} · {date}
-                    </div>
+              )}
+
+              {/* Nearby courses not in library */}
+              {nearbyNotInLibrary.length > 0 && (
+                <>
+                  <div style={{ padding: '6px 13px 4px', fontSize: 10, color: 'rgba(245,240,232,0.3)', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    📍 Nearby — scan to add
                   </div>
-                );
-              })}
+                  {nearbyNotInLibrary.map(name => (
+                    <div
+                      key={name}
+                      style={{ padding: '9px 13px', borderBottom: '1px solid rgba(255,255,255,0.04)', opacity: 0.55 }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--cream)' }}>{name}</div>
+                      <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)', marginTop: 2 }}>Not in library · take a photo to scan</div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
