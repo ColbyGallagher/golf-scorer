@@ -1,4 +1,5 @@
-.claude/
+.claude/*
+!.claude/commands
 node_modules/
 next-app/node_modules/
 next-app/.next/
