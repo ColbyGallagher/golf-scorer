@@ -60,7 +60,7 @@ function computeStats(rounds: HistoryRound[], pid: string): PlayerStats {
     const ta = r.teamAssignments || {};
     const myTeam = ta[pid];
     if (!myTeam) return false;
-    const { totA, totB } = teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+    const { totA, totB } = teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta as Record<string, 'A' | 'B'>);
     return myTeam === 'A' ? totA > totB : totB > totA;
   }).length;
   const individualWins = played.filter((r, i) => {
@@ -315,7 +315,7 @@ function PlayerDetail({ pid, name, color, handicap, rounds, hScores, onClose }: 
             const gross = roundGross(r, pid);
             const ta    = r.teamAssignments || {};
             const myTeam = ta[pid];
-            const { totA, totB } = teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+            const { totA, totB } = teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta as Record<string, 'A' | 'B'>);
             const won   = myTeam === 'A' ? totA > totB : myTeam === 'B' ? totB > totA : null;
             const tp    = Array.isArray(r.threePutts?.[pid]) ? r.threePutts[pid].filter(Boolean).length : 0;
 
