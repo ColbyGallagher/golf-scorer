@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-static';
+
 const BASE = 'https://api.golfcourseapi.com/v1';
 
 export async function GET(request: NextRequest) {
