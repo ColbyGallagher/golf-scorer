@@ -104,7 +104,8 @@ export default function Step1Course({ onNext }: Props) {
     ? allCourses.filter(c => c.course_name.toLowerCase().includes(courseQuery.toLowerCase()))
     : allCourses;
 
-  const canProceed = teeApplied && holesConfirmed;
+  const hasDuplicateIndices = teeApplied && new Set(indices).size !== indices.length;
+  const canProceed = teeApplied && holesConfirmed && !hasDuplicateIndices;
 
   // ── Course library ──────────────────────────────────────────────────────────
 
@@ -440,6 +441,15 @@ export default function Step1Course({ onNext }: Props) {
               border: '1px solid rgba(224,85,85,0.3)',
             }}>
               ⚠️ Duplicate stroke indices detected on holes {duplicateWarnings[appliedTee].join(', ')} — please verify below.
+            </div>
+          )}
+          {hasDuplicateIndices && (
+            <div style={{
+              padding: '8px 11px', marginBottom: 10, borderRadius: 8, fontSize: 12,
+              background: 'rgba(224,85,85,0.1)', color: 'var(--red)',
+              border: '1px solid rgba(224,85,85,0.3)',
+            }}>
+              ⚠️ Duplicate stroke indices — same colour = same conflict. Fix before continuing.
             </div>
           )}
           <HoleConfirmTable

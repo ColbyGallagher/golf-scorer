@@ -259,6 +259,24 @@ export function getPlayingHandicap(
   return Math.round(courseHcp * 0.95);
 }
 
+// Returns effective playing handicap per player: override if set, else WHS-computed
+export function getEffectivePlayingHandicaps(
+  handicaps: Record<string, number>,
+  overrides: Partial<Record<string, number>>,
+  courseRating: number,
+  slopeRating: number,
+  pars: number[],
+): Record<string, number> {
+  return Object.fromEntries(
+    Object.keys(handicaps).map(pid => [
+      pid,
+      overrides[pid] !== undefined
+        ? overrides[pid]!
+        : getPlayingHandicap(pid, handicaps, courseRating, slopeRating, pars),
+    ])
+  );
+}
+
 // ─── Display helpers ─────────────────────────────────────────────────────────
 
 export function ptsClass(pts: number | null): string {

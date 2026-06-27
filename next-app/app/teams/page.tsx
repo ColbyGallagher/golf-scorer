@@ -1,19 +1,22 @@
 'use client';
 
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { totalStableford, teamTotals, teamMultiplierHole, calcSkins, calcNassau, grossScore, getPlayingHandicap } from '../../lib/scoring';
+import { totalStableford, teamTotals, teamMultiplierHole, calcSkins, calcNassau, grossScore, getEffectivePlayingHandicaps } from '../../lib/scoring';
 import type { PlayerId, Team } from '../../lib/types';
 import GameNav from '../_components/GameNav';
 
 export default function TeamsPage() {
-  const scores          = useGameStore(s => s.scores);
-  const pars            = useGameStore(s => s.pars);
-  const handicaps       = useGameStore(s => s.handicaps);
-  const indices         = useGameStore(s => s.indices);
-  const activeGames     = useGameStore(s => s.activeGames);
-  const teamAssignments = useGameStore(s => s.teamAssignments);
-  const courseRating    = useGameStore(s => s.courseRating);
-  const slopeRating     = useGameStore(s => s.slopeRating);
+  const scores                 = useGameStore(s => s.scores);
+  const pars                   = useGameStore(s => s.pars);
+  const handicaps              = useGameStore(s => s.handicaps);
+  const dailyHandicapOverrides = useGameStore(s => s.dailyHandicapOverrides);
+  const indices                = useGameStore(s => s.indices);
+  const activeGames            = useGameStore(s => s.activeGames);
+  const teamAssignments        = useGameStore(s => s.teamAssignments);
+  const courseRating           = useGameStore(s => s.courseRating);
+  const slopeRating            = useGameStore(s => s.slopeRating);
+
+  const playingHandicaps = getEffectivePlayingHandicaps(handicaps, dailyHandicapOverrides, courseRating, slopeRating, pars);
 
   const hasTeamFormat = activeGames.teamMultiplier || activeGames.nassau;
   const teamAPlayers  = PLAYERS.filter(p => teamAssignments[p.id as PlayerId] === 'A');
@@ -32,19 +35,18 @@ export default function TeamsPage() {
             {hasTeamFormat && <TeamBlock
               teamAName={teamAName} teamBName={teamBName}
               teamAPlayers={teamAPlayers} teamBPlayers={teamBPlayers}
-              scores={scores} pars={pars} handicaps={handicaps} indices={indices}
+              scores={scores} pars={pars} handicaps={playingHandicaps} indices={indices}
               teamAssignments={teamAssignments as Record<PlayerId, Team>}
               activeGames={activeGames}
             />}
-            {activeGames.skins && <SkinsSection scores={scores} pars={pars} handicaps={handicaps} indices={indices} />}
+            {activeGames.skins && <SkinsSection scores={scores} pars={pars} handicaps={playingHandicaps} indices={indices} />}
             {activeGames.nassau && hasTeamFormat && <NassauSection
               teamAName={teamAName} teamBName={teamBName}
-              scores={scores} pars={pars} handicaps={handicaps} indices={indices}
+              scores={scores} pars={pars} handicaps={playingHandicaps} indices={indices}
               teamAssignments={teamAssignments as Record<PlayerId, Team>}
             />}
             {(activeGames.gross || activeGames.net) && <GrossNetSection
-              scores={scores} pars={pars} handicaps={handicaps} indices={indices}
-              courseRating={courseRating} slopeRating={slopeRating}
+              scores={scores} pars={pars} handicaps={playingHandicaps} indices={indices}
               showGross={activeGames.gross} showNet={activeGames.net}
             />}
           </>
@@ -234,15 +236,15 @@ function NassauSection({ teamAName, teamBName, scores, pars, handicaps, indices,
   );
 }
 
-function GrossNetSection({ scores, pars, handicaps, indices, courseRating, slopeRating, showGross, showNet }: {
+function GrossNetSection({ scores, pars, handicaps, indices, showGross, showNet }: {
   scores: Record<PlayerId, number[]>; pars: number[];
   handicaps: Record<PlayerId, number>; indices: number[];
-  courseRating: number; slopeRating: number; showGross: boolean; showNet: boolean;
+  showGross: boolean; showNet: boolean;
 }) {
   const rows = [...PLAYERS].map(p => {
     const pid   = p.id as PlayerId;
     const gross = grossScore(pid, scores);
-    const ph    = getPlayingHandicap(pid, handicaps, courseRating, slopeRating, pars);
+    const ph    = handicaps[pid];
     return { p, gross, net: gross > 0 ? gross - ph : 0, ph };
   }).sort((a, b) => showNet ? (a.net || 999) - (b.net || 999) : (a.gross || 999) - (b.gross || 999));
 

@@ -1,18 +1,21 @@
 'use client';
 
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { stablefordPoints, totalStableford, grossScore, getPlayingHandicap } from '../../lib/scoring';
+import { stablefordPoints, totalStableford, grossScore, getEffectivePlayingHandicaps } from '../../lib/scoring';
 import type { PlayerId } from '../../lib/types';
 import GameNav from '../_components/GameNav';
 
 export default function CardPage() {
-  const scores       = useGameStore(s => s.scores);
-  const pars         = useGameStore(s => s.pars);
-  const indices      = useGameStore(s => s.indices);
-  const handicaps    = useGameStore(s => s.handicaps);
-  const activeGames  = useGameStore(s => s.activeGames);
-  const courseRating = useGameStore(s => s.courseRating);
-  const slopeRating  = useGameStore(s => s.slopeRating);
+  const scores                 = useGameStore(s => s.scores);
+  const pars                   = useGameStore(s => s.pars);
+  const indices                = useGameStore(s => s.indices);
+  const handicaps              = useGameStore(s => s.handicaps);
+  const dailyHandicapOverrides = useGameStore(s => s.dailyHandicapOverrides);
+  const activeGames            = useGameStore(s => s.activeGames);
+  const courseRating           = useGameStore(s => s.courseRating);
+  const slopeRating            = useGameStore(s => s.slopeRating);
+
+  const playingHandicaps = getEffectivePlayingHandicaps(handicaps, dailyHandicapOverrides, courseRating, slopeRating, pars);
 
   const front = Array.from({ length: 9 }, (_, i) => i);
   const back  = Array.from({ length: 9 }, (_, i) => i + 9);
@@ -24,7 +27,7 @@ export default function CardPage() {
   function cell(pid: PlayerId, h: number) {
     const s = scores[pid][h];
     if (!s) return { val: '—', color: 'rgba(245,240,232,0.15)' };
-    const pts = stablefordPoints(s, pars[h], pid, h, handicaps, indices);
+    const pts = stablefordPoints(s, pars[h], pid, h, playingHandicaps, indices);
     const color = pts !== null && pts >= 4 ? 'var(--gold)'
       : pts !== null && pts >= 3 ? 'var(--green-bright)' : '';
     return { val: String(s), color };
@@ -32,17 +35,17 @@ export default function CardPage() {
 
   function sectionPts(pid: PlayerId, holes: number[]) {
     return holes.reduce((sum, h) =>
-      sum + (stablefordPoints(scores[pid][h], pars[h], pid, h, handicaps, indices) ?? 0), 0);
+      sum + (stablefordPoints(scores[pid][h], pars[h], pid, h, playingHandicaps, indices) ?? 0), 0);
   }
 
   const sfRows = [...PLAYERS]
-    .map(p => ({ p, pts: totalStableford(p.id as PlayerId, scores, pars, handicaps, indices) }))
+    .map(p => ({ p, pts: totalStableford(p.id as PlayerId, scores, pars, playingHandicaps, indices) }))
     .sort((a, b) => b.pts - a.pts);
 
   const gnRows = [...PLAYERS].map(p => {
     const pid   = p.id as PlayerId;
     const gross = grossScore(pid, scores);
-    const ph    = getPlayingHandicap(pid, handicaps, courseRating, slopeRating, pars);
+    const ph    = playingHandicaps[pid];
     const net   = gross > 0 ? gross - ph : 0;
     const thru  = scores[pid].filter(v => v > 0).length;
     return { p, gross, net, ph, thru };

@@ -11,17 +11,19 @@ interface Props {
 
 export default function Step3Players({ onBack }: Props) {
   const router   = useRouter();
-  const handicaps      = useGameStore(s => s.handicaps);
-  const courseRating   = useGameStore(s => s.courseRating);
-  const slopeRating    = useGameStore(s => s.slopeRating);
-  const pars           = useGameStore(s => s.pars);
-  const teamAssignments = useGameStore(s => s.teamAssignments);
-  const activeGames    = useGameStore(s => s.activeGames);
-  const setHandicap    = useGameStore(s => s.setHandicap);
-  const setCourseRating = useGameStore(s => s.setCourseRating);
-  const setSlopeRating  = useGameStore(s => s.setSlopeRating);
-  const setTeamAssignment = useGameStore(s => s.setTeamAssignment);
-  const setGameActive  = useGameStore(s => s.setGameActive);
+  const handicaps              = useGameStore(s => s.handicaps);
+  const dailyHandicapOverrides = useGameStore(s => s.dailyHandicapOverrides);
+  const courseRating           = useGameStore(s => s.courseRating);
+  const slopeRating            = useGameStore(s => s.slopeRating);
+  const pars                   = useGameStore(s => s.pars);
+  const teamAssignments        = useGameStore(s => s.teamAssignments);
+  const activeGames            = useGameStore(s => s.activeGames);
+  const setHandicap            = useGameStore(s => s.setHandicap);
+  const setDailyHandicapOverride = useGameStore(s => s.setDailyHandicapOverride);
+  const setCourseRating        = useGameStore(s => s.setCourseRating);
+  const setSlopeRating         = useGameStore(s => s.setSlopeRating);
+  const setTeamAssignment      = useGameStore(s => s.setTeamAssignment);
+  const setGameActive          = useGameStore(s => s.setGameActive);
 
   const showTeams = activeGames.teamMultiplier || activeGames.nassau;
 
@@ -89,15 +91,60 @@ export default function Step3Players({ onBack }: Props) {
           </div>
 
           {PLAYERS.map(p => {
-            const ph = getPlayingHandicap(p.id, handicaps, courseRating, slopeRating, pars);
+            const pid        = p.id as PlayerId;
+            const computed   = getPlayingHandicap(pid, handicaps, courseRating, slopeRating, pars);
+            const isOverride = dailyHandicapOverrides[pid] !== undefined;
+            const displayVal = isOverride ? dailyHandicapOverrides[pid]! : computed;
+
             return (
-              <div key={p.id} className="player-row" style={{ padding: '6px 11px', marginBottom: 6 }}>
-                <div className="player-dot" style={{ background: p.color }} />
-                <span className="player-name-label">{p.name}</span>
-                <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)' }}>Playing HCP</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 18, fontWeight: 700, color: 'var(--green-bright)', minWidth: 28, textAlign: 'right' }}>
-                  {ph}
-                </span>
+              <div key={pid} style={{ marginBottom: 6 }}>
+                <div
+                  className="player-row"
+                  style={{
+                    padding: '6px 11px',
+                    ...(isOverride ? {
+                      background: 'rgba(201,168,76,0.07)',
+                      border: '1px solid rgba(201,168,76,0.28)',
+                      borderRadius: 8,
+                    } : {}),
+                  }}
+                >
+                  <div className="player-dot" style={{ background: p.color }} />
+                  <span className="player-name-label">{p.name}</span>
+                  <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)' }}>Daily HCP</span>
+                  <input
+                    className="hcp-input"
+                    type="number"
+                    step="1"
+                    min={-10}
+                    max={54}
+                    inputMode="numeric"
+                    value={displayVal}
+                    onChange={e => {
+                      const v = parseInt(e.target.value);
+                      if (isNaN(v)) return;
+                      setDailyHandicapOverride(pid, v === computed ? null : v);
+                    }}
+                    style={isOverride ? { color: 'var(--gold)', borderColor: 'rgba(201,168,76,0.45)' } : { color: 'var(--green-bright)' }}
+                  />
+                  {isOverride && (
+                    <button
+                      onClick={() => setDailyHandicapOverride(pid, null)}
+                      title={`Reset to auto (${computed})`}
+                      style={{
+                        marginLeft: 4, width: 22, height: 22, borderRadius: 6, cursor: 'pointer',
+                        background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.3)',
+                        color: 'var(--gold)', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >↺</button>
+                  )}
+                </div>
+                {isOverride && (
+                  <div style={{ fontSize: 10, color: 'var(--gold)', padding: '3px 11px 0', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    ✏️ Manually adjusted · auto would be {computed}
+                  </div>
+                )}
               </div>
             );
           })}

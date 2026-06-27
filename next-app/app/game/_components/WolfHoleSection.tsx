@@ -1,7 +1,7 @@
 'use client';
 
 import { useGameStore, PLAYERS } from '../../../store/gameStore';
-import { stablefordPoints } from '../../../lib/scoring';
+import { stablefordPoints, getEffectivePlayingHandicaps } from '../../../lib/scoring';
 import type { PlayerId, WolfMode } from '../../../lib/types';
 
 interface Props {
@@ -21,14 +21,19 @@ function modeStyle(active: boolean): React.CSSProperties {
 }
 
 export default function WolfHoleSection({ hole }: Props) {
-  const activeGames = useGameStore(s => s.activeGames);
-  const wolfOrder   = useGameStore(s => s.wolfOrder);
-  const wolfHoles   = useGameStore(s => s.wolfHoles);
-  const scores      = useGameStore(s => s.scores);
-  const pars        = useGameStore(s => s.pars);
-  const handicaps   = useGameStore(s => s.handicaps);
-  const indices     = useGameStore(s => s.indices);
-  const setWolfHole = useGameStore(s => s.setWolfHole);
+  const activeGames            = useGameStore(s => s.activeGames);
+  const wolfOrder              = useGameStore(s => s.wolfOrder);
+  const wolfHoles              = useGameStore(s => s.wolfHoles);
+  const scores                 = useGameStore(s => s.scores);
+  const pars                   = useGameStore(s => s.pars);
+  const handicaps              = useGameStore(s => s.handicaps);
+  const dailyHandicapOverrides = useGameStore(s => s.dailyHandicapOverrides);
+  const courseRating           = useGameStore(s => s.courseRating);
+  const slopeRating            = useGameStore(s => s.slopeRating);
+  const indices                = useGameStore(s => s.indices);
+  const setWolfHole            = useGameStore(s => s.setWolfHole);
+
+  const playingHandicaps = getEffectivePlayingHandicaps(handicaps, dailyHandicapOverrides, courseRating, slopeRating, pars);
 
   if (!activeGames.wolf) return null;
 
@@ -52,11 +57,11 @@ export default function WolfHoleSection({ hole }: Props) {
   // Live result preview when scores are entered
   let resultEl: React.ReactNode = null;
   if (mode && PLAYERS.some(p => scores[p.id][hole] > 0)) {
-    const wolfPts = stablefordPoints(scores[wolfId][hole], par, wolfId, hole, handicaps, indices) ?? 0;
+    const wolfPts = stablefordPoints(scores[wolfId][hole], par, wolfId, hole, playingHandicaps, indices) ?? 0;
     const others  = PLAYERS.filter(p => p.id !== wolfId);
 
     if (mode === 'blind' || mode === 'alone') {
-      const maxOther = Math.max(...others.map(p => stablefordPoints(scores[p.id][hole], par, p.id, hole, handicaps, indices) ?? 0));
+      const maxOther = Math.max(...others.map(p => stablefordPoints(scores[p.id][hole], par, p.id, hole, playingHandicaps, indices) ?? 0));
       const winPts = mode === 'blind' ? 8 : 4;
       if (wolfPts > maxOther)
         resultEl = <div style={{ marginTop: 9, fontSize: 11, fontWeight: 600, color: 'var(--green-bright)' }}>✅ {wolf.name} wins · +{winPts} pts</div>;
@@ -65,10 +70,10 @@ export default function WolfHoleSection({ hole }: Props) {
       else
         resultEl = <div style={{ marginTop: 9, fontSize: 11, color: 'var(--gold)' }}>Draw · 0 pts</div>;
     } else if (mode === 'partner' && wh.partnerId) {
-      const partnerPts = stablefordPoints(scores[wh.partnerId][hole], par, wh.partnerId, hole, handicaps, indices) ?? 0;
+      const partnerPts = stablefordPoints(scores[wh.partnerId][hole], par, wh.partnerId, hole, playingHandicaps, indices) ?? 0;
       const otherTwo   = others.filter(p => p.id !== wh.partnerId);
       const wolfTeam   = Math.max(wolfPts, partnerPts);
-      const otherTeam  = Math.max(...otherTwo.map(p => stablefordPoints(scores[p.id][hole], par, p.id, hole, handicaps, indices) ?? 0));
+      const otherTeam  = Math.max(...otherTwo.map(p => stablefordPoints(scores[p.id][hole], par, p.id, hole, playingHandicaps, indices) ?? 0));
       const partner    = PLAYERS.find(p => p.id === wh.partnerId);
       if (wolfTeam > otherTeam)
         resultEl = <div style={{ marginTop: 9, fontSize: 11, fontWeight: 600, color: 'var(--green-bright)' }}>✅ {wolf.name} & {partner?.name} win · +2 each</div>;

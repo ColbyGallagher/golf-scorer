@@ -1,20 +1,25 @@
 'use client';
 
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { calcWolf, calcSkins, stablefordPoints } from '../../lib/scoring';
+import { calcWolf, calcSkins, stablefordPoints, getEffectivePlayingHandicaps } from '../../lib/scoring';
 import type { PlayerId } from '../../lib/types';
 import GameNav from '../_components/GameNav';
 
 export default function CompsPage() {
-  const scores          = useGameStore(s => s.scores);
-  const pars            = useGameStore(s => s.pars);
-  const handicaps       = useGameStore(s => s.handicaps);
-  const indices         = useGameStore(s => s.indices);
-  const activeGames     = useGameStore(s => s.activeGames);
-  const compWinners     = useGameStore(s => s.compWinners);
-  const threePutts      = useGameStore(s => s.threePutts);
-  const wolfOrder       = useGameStore(s => s.wolfOrder);
-  const wolfHoles       = useGameStore(s => s.wolfHoles);
+  const scores                 = useGameStore(s => s.scores);
+  const pars                   = useGameStore(s => s.pars);
+  const handicaps              = useGameStore(s => s.handicaps);
+  const dailyHandicapOverrides = useGameStore(s => s.dailyHandicapOverrides);
+  const courseRating           = useGameStore(s => s.courseRating);
+  const slopeRating            = useGameStore(s => s.slopeRating);
+  const indices                = useGameStore(s => s.indices);
+  const activeGames            = useGameStore(s => s.activeGames);
+  const compWinners            = useGameStore(s => s.compWinners);
+  const threePutts             = useGameStore(s => s.threePutts);
+  const wolfOrder              = useGameStore(s => s.wolfOrder);
+  const wolfHoles              = useGameStore(s => s.wolfHoles);
+
+  const playingHandicaps = getEffectivePlayingHandicaps(handicaps, dailyHandicapOverrides, courseRating, slopeRating, pars);
 
   const par3s = pars.map((p, i) => p === 3 ? i : -1).filter(h => h >= 0);
   const par5s = pars.map((p, i) => p === 5 ? i : -1).filter(h => h >= 0);
@@ -69,12 +74,12 @@ export default function CompsPage() {
 
         {/* Wolf results */}
         {activeGames.wolf && (
-          <WolfResults scores={scores} pars={pars} handicaps={handicaps} indices={indices} wolfOrder={wolfOrder} wolfHoles={wolfHoles} />
+          <WolfResults scores={scores} pars={pars} handicaps={playingHandicaps} indices={indices} wolfOrder={wolfOrder} wolfHoles={wolfHoles} />
         )}
 
         {/* Skins results (read-only summary) */}
         {activeGames.skins && (
-          <SkinsResults scores={scores} pars={pars} handicaps={handicaps} indices={indices} />
+          <SkinsResults scores={scores} pars={pars} handicaps={playingHandicaps} indices={indices} />
         )}
 
         {/* 3-putt summary */}

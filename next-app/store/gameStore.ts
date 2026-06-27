@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   PlayerId, Team, Player, HoleData, WolfHole, CompWinner, ActiveGames,
 } from '../lib/types';
@@ -43,6 +44,7 @@ type TeamAssignments = Record<PlayerId, Team>;
 
 interface GameState {
   handicaps: PlayerHandicaps;
+  dailyHandicapOverrides: Partial<PlayerHandicaps>;
   pars: number[];
   indices: number[];
   scores: PlayerScores;
@@ -65,6 +67,7 @@ interface GameState {
 
 interface GameActions {
   setHandicap: (playerId: PlayerId, value: number) => void;
+  setDailyHandicapOverride: (playerId: PlayerId, value: number | null) => void;
   setScore: (playerId: PlayerId, hole: number, value: number) => void;
   setThreePutt: (playerId: PlayerId, hole: number, value: boolean) => void;
   setCurrentHole: (hole: number) => void;
@@ -106,6 +109,7 @@ function initCompWinners(): Record<number, CompWinner> {
 
 const defaultState: GameState = {
   handicaps: { colby: 18, mitch: 14, dave: 16, scott: 0 },
+  dailyHandicapOverrides: {},
   pars: DEFAULT_HOLE_DATA.map(h => h.par),
   indices: DEFAULT_HOLE_DATA.map(h => h.idx),
   scores: initScores(),
@@ -126,11 +130,21 @@ const defaultState: GameState = {
   threePutts: initThreePutts(),
 };
 
-export const useGameStore = create<GameState & GameActions>((set) => ({
+export const useGameStore = create<GameState & GameActions>()(
+  persist(
+    (set) => ({
   ...defaultState,
 
   setHandicap: (playerId, value) =>
     set(s => ({ handicaps: { ...s.handicaps, [playerId]: value } })),
+
+  setDailyHandicapOverride: (playerId, value) =>
+    set(s => {
+      const next = { ...s.dailyHandicapOverrides };
+      if (value === null) delete next[playerId];
+      else next[playerId] = value;
+      return { dailyHandicapOverrides: next };
+    }),
 
   setScore: (playerId, hole, value) =>
     set(s => {
@@ -185,5 +199,12 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
     threePutts: initThreePutts(),
     compWinners: initCompWinners(),
     wolfHoles: Array(18).fill(null).map(() => ({ mode: null, partnerId: null })),
+    dailyHandicapOverrides: {},
   }),
-}));
+}),
+    {
+      name: 'golf-game-state',
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);

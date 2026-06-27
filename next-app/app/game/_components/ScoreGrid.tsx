@@ -1,7 +1,7 @@
 'use client';
 
 import { useGameStore, PLAYERS } from '../../../store/gameStore';
-import { stablefordPoints, strokesOnHole, ptsClass, ptsLabel } from '../../../lib/scoring';
+import { stablefordPoints, strokesOnHole, ptsClass, ptsLabel, getEffectivePlayingHandicaps } from '../../../lib/scoring';
 import type { PlayerId } from '../../../lib/types';
 
 interface Props {
@@ -9,26 +9,43 @@ interface Props {
 }
 
 export default function ScoreGrid({ hole }: Props) {
-  const scores      = useGameStore(s => s.scores);
-  const threePutts  = useGameStore(s => s.threePutts);
-  const pars        = useGameStore(s => s.pars);
-  const handicaps   = useGameStore(s => s.handicaps);
-  const indices     = useGameStore(s => s.indices);
-  const teamAssignments = useGameStore(s => s.teamAssignments);
-  const setScore      = useGameStore(s => s.setScore);
-  const setThreePutt  = useGameStore(s => s.setThreePutt);
+  const scores                 = useGameStore(s => s.scores);
+  const threePutts             = useGameStore(s => s.threePutts);
+  const pars                   = useGameStore(s => s.pars);
+  const handicaps              = useGameStore(s => s.handicaps);
+  const dailyHandicapOverrides = useGameStore(s => s.dailyHandicapOverrides);
+  const courseRating           = useGameStore(s => s.courseRating);
+  const slopeRating            = useGameStore(s => s.slopeRating);
+  const indices                = useGameStore(s => s.indices);
+  const teamAssignments        = useGameStore(s => s.teamAssignments);
+  const setScore               = useGameStore(s => s.setScore);
+  const setThreePutt           = useGameStore(s => s.setThreePutt);
+
+  const playingHandicaps = getEffectivePlayingHandicaps(handicaps, dailyHandicapOverrides, courseRating, slopeRating, pars);
 
   const par = pars[hole];
+  const hasDupeIndices = new Set(indices).size !== indices.length;
 
   return (
     <div>
       <div className="card-title" style={{ marginBottom: 9 }}>🏌️ Scores</div>
-      <div className="score-grid">
+
+      {hasDupeIndices && (
+        <div style={{
+          marginBottom: 10, padding: '8px 11px',
+          background: 'rgba(224,85,85,0.1)', border: '1px solid rgba(224,85,85,0.3)',
+          borderRadius: 8, fontSize: 12, color: 'var(--red)',
+        }}>
+          ⚠️ Fix duplicate stroke indices above before entering scores
+        </div>
+      )}
+
+      <div className="score-grid" style={hasDupeIndices ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
         {PLAYERS.map(p => {
           const pid     = p.id as PlayerId;
           const strokes = scores[pid][hole];
-          const sr      = strokesOnHole(pid, hole, handicaps, indices);
-          const pts     = stablefordPoints(strokes, par, pid, hole, handicaps, indices);
+          const sr      = strokesOnHole(pid, hole, playingHandicaps, indices);
+          const pts     = stablefordPoints(strokes, par, pid, hole, playingHandicaps, indices);
           const tp      = threePutts[pid][hole];
 
           return (
@@ -42,7 +59,7 @@ export default function ScoreGrid({ hole }: Props) {
                   ))}
                 </div>
                 <div className="score-player-sub">
-                  HCP {handicaps[pid]} · {sr} stroke{sr !== 1 ? 's' : ''} · Team {teamAssignments[pid]}
+                  HCP {playingHandicaps[pid]} · {sr} stroke{sr !== 1 ? 's' : ''} · Team {teamAssignments[pid]}
                 </div>
               </div>
 
