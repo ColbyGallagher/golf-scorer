@@ -363,7 +363,7 @@ export default function Step1Course({ onNext }: Props) {
               </span>
             )}
             {gpsStatus === 'ready' && nearbyCourseNames.length === 0 && userSuburb && (
-              <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.3)' }}>📍 {userSuburb}</span>
+              <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.35)' }}>📍 {userSuburb} — no courses found nearby</span>
             )}
           </div>
           <input
