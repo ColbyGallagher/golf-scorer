@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useGameStore, PLAYERS } from '../../store/gameStore';
 import { stablefordPoints, calcSkins, calcWolf, calcNassau, calcBestBall, teamTotals, getPlayingHandicap } from '../../lib/scoring';
 import type { HistoryRound } from '../../lib/db';
-import { saveRoundToCloud, syncRoundsFromCloud, deleteRoundFromCloud } from '../../lib/db';
-import type { PlayerId } from '../../lib/types';
+import { saveRoundToCloud, syncRoundsFromCloud, deleteRoundFromCloud, saveTourEvent, addHandicapScore } from '../../lib/db';
+import type { PlayerId, TourEvent } from '../../lib/types';
+import { differential } from '../../lib/handicap';
 
 function loadHistory(): HistoryRound[] {
   if (typeof window === 'undefined') return [];
@@ -34,6 +35,7 @@ export default function HistoryPage() {
   const [cloudMsg,       setCloudMsg]       = useState('');
   const [syncing,        setSyncing]        = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [tourModal, setTourModal] = useState<HistoryRound | null>(null);
 
   const gameActive      = useGameStore(s => s.gameActive);
   const scores          = useGameStore(s => s.scores);
@@ -97,6 +99,7 @@ export default function HistoryPage() {
       setCloudMsg('⚠️ Cloud save failed — saved locally');
     }
     setTimeout(() => setCloudMsg(''), 3000);
+    setTourModal(entry);
   }
 
   async function syncCloud() {
@@ -128,7 +131,8 @@ export default function HistoryPage() {
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px 0', maxWidth: 480, margin: '0 auto' }}>
         <Link href="/setup" style={{ color: 'var(--gold)', fontSize: 18, textDecoration: 'none', lineHeight: 1 }}>←</Link>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: 'var(--gold)', margin: 0 }}>History</h1>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: 'var(--gold)', margin: 0, flex: 1 }}>History</h1>
+        <Link href="/tour" style={{ fontSize: 12, color: 'var(--gold)', textDecoration: 'none', border: '1px solid rgba(201,168,76,0.35)', borderRadius: 6, padding: '4px 10px' }}>🏅 Tour</Link>
       </div>
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '14px 14px 40px' }}>
         {gameActive && holesPlayed > 0 ? (
@@ -178,6 +182,7 @@ export default function HistoryPage() {
       </div>
 
       {detail && <HistoryDetail round={detail} onClose={() => setDetail(null)} />}
+      {tourModal && <TourEventModal round={tourModal} onClose={() => setTourModal(null)} />}
     </>
   );
 }
@@ -503,6 +508,207 @@ function HistoryDetail({ round: r, onClose }: { round: HistoryRound; onClose: ()
         <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.3)', textAlign: 'center', marginTop: 8 }}>
           {PLAYERS.map(p => `${p.name} HCP ${r.handicaps[p.id]}`).join(' · ')}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tour Event Modal ─────────────────────────────────────────────────────────
+
+function TourEventModal({ round, onClose }: { round: HistoryRound; onClose: () => void }) {
+  const PLAYER_IDS = PLAYERS.map(p => p.id as PlayerId);
+  const [teamA, setTeamA] = useState<PlayerId[]>([PLAYER_IDS[0], PLAYER_IDS[1]]);
+  const [teamFormat, setTeamFormat] = useState<'multiplier' | 'worstBall' | 'bestBall'>('multiplier');
+  const [teamWinner, setTeamWinner] = useState<'A' | 'B' | null>(null);
+  const [ctpWinner, setCtpWinner] = useState<PlayerId | null>(null);
+  const [ldWinner, setLdWinner] = useState<PlayerId | null>(null);
+  const [poopWinner, setPoopWinner] = useState<PlayerId | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const teamB = PLAYER_IDS.filter(p => !teamA.includes(p));
+
+  function toggleTeamA(pid: PlayerId) {
+    if (teamA.includes(pid)) {
+      if (teamA.length > 1) setTeamA(teamA.filter(p => p !== pid));
+    } else {
+      if (teamA.length < 3) setTeamA([...teamA, pid]);
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    const month = new Date(round.date).toLocaleString('en-AU', { month: 'long' });
+    const season = new Date(round.date).getFullYear();
+    const threePuttCounts = Object.fromEntries(
+      PLAYER_IDS.map(pid => [pid, (round.threePutts[pid] ?? []).filter(Boolean).length]),
+    ) as Record<PlayerId, number>;
+    const event: TourEvent = {
+      id: `${season}-${round.id}`,
+      month,
+      season,
+      courseName: round.courseName,
+      date: round.date.slice(0, 10),
+      courseRating: round.courseRating,
+      slopeRating: round.slopeRating,
+      par: round.pars.reduce((s, p) => s + p, 0),
+      teamA,
+      teamB,
+      teamFormat,
+      teamWinner,
+      ctpWinner,
+      ldWinner,
+      roundHandicaps: round.handicaps as Record<PlayerId, number>,
+      threePuttCounts,
+      poopWinner,
+      roundId: round.id,
+    };
+    await saveTourEvent(event);
+    for (const pl of PLAYERS) {
+      const gross = (round.scores[pl.id] ?? []).reduce((s, v) => s + (v || 0), 0);
+      if (gross === 0) continue;
+      const diff = differential(gross, round.courseRating, round.slopeRating);
+      await addHandicapScore({
+        playerId: pl.id as PlayerId,
+        date: round.date.slice(0, 10),
+        course: round.courseName,
+        score: gross,
+        rating: round.courseRating,
+        slope: round.slopeRating,
+        differential: Math.round(diff * 10) / 10,
+      });
+    }
+    setSaving(false);
+    setMsg('✅ Tour event saved!');
+    setTimeout(onClose, 1400);
+  }
+
+  const overlay: React.CSSProperties = {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    zIndex: 1000, padding: '0 0 env(safe-area-inset-bottom,0)',
+  };
+  const sheet: React.CSSProperties = {
+    background: 'var(--green-deep)', border: '1px solid rgba(201,168,76,0.3)',
+    borderRadius: '16px 16px 0 0', padding: '20px 18px 32px', width: '100%', maxWidth: 480,
+  };
+  const label: React.CSSProperties = { fontSize: 11, color: 'rgba(245,240,232,0.45)', marginBottom: 6, display: 'block' };
+  const row: React.CSSProperties = { marginBottom: 16 };
+
+  const chipBase: React.CSSProperties = {
+    fontSize: 12, padding: '5px 12px', borderRadius: 20, border: '1px solid rgba(201,168,76,0.3)',
+    cursor: 'pointer', background: 'rgba(0,0,0,0.2)', color: 'var(--cream)',
+  };
+  const chipActive: React.CSSProperties = {
+    ...chipBase, background: 'rgba(201,168,76,0.2)', borderColor: 'var(--gold)', color: 'var(--gold)', fontWeight: 600,
+  };
+
+  function PlayerChips({ value, onChange, nullable }: {
+    value: PlayerId | null;
+    onChange: (v: PlayerId | null) => void;
+    nullable?: boolean;
+  }) {
+    return (
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {nullable && (
+          <button style={value === null ? chipActive : chipBase} onClick={() => onChange(null)}>None</button>
+        )}
+        {PLAYERS.map(pl => (
+          <button
+            key={pl.id}
+            style={value === pl.id ? { ...chipActive, borderColor: pl.color, color: pl.color } : chipBase}
+            onClick={() => onChange(pl.id as PlayerId)}
+          >
+            {pl.name}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={sheet}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, color: 'var(--gold)' }}>
+            🏅 Add to DE Tour
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,240,232,0.4)', fontSize: 18, cursor: 'pointer' }}>✕</button>
+        </div>
+
+        <div style={{ fontSize: 12, color: 'rgba(245,240,232,0.5)', marginBottom: 16 }}>
+          {round.courseName} · {new Date(round.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+        </div>
+
+        <div style={row}>
+          <span style={label}>Team A players</span>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {PLAYERS.map(pl => (
+              <button
+                key={pl.id}
+                style={teamA.includes(pl.id as PlayerId)
+                  ? { ...chipActive, borderColor: pl.color, color: pl.color }
+                  : chipBase}
+                onClick={() => toggleTeamA(pl.id as PlayerId)}
+              >
+                {pl.name}
+              </button>
+            ))}
+          </div>
+          {teamB.length > 0 && (
+            <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.3)', marginTop: 5 }}>
+              Team B: {teamB.map(p => PLAYERS.find(pl => pl.id === p)?.name).join(', ')}
+            </div>
+          )}
+        </div>
+
+        <div style={row}>
+          <span style={label}>Team format</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['multiplier', 'worstBall', 'bestBall'] as const).map(f => (
+              <button key={f} style={teamFormat === f ? chipActive : chipBase} onClick={() => setTeamFormat(f)}>
+                {f === 'multiplier' ? 'Multiplier' : f === 'worstBall' ? 'Worst Ball' : 'Best Ball'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={row}>
+          <span style={label}>Team winner</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['A', 'B', null] as const).map(v => (
+              <button key={String(v)} style={teamWinner === v ? chipActive : chipBase} onClick={() => setTeamWinner(v)}>
+                {v === null ? 'Draw' : `Team ${v}`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={row}>
+          <span style={label}>📍 CTP winner</span>
+          <PlayerChips value={ctpWinner} onChange={setCtpWinner} nullable />
+        </div>
+
+        <div style={row}>
+          <span style={label}>🏌️ LD winner</span>
+          <PlayerChips value={ldWinner} onChange={setLdWinner} nullable />
+        </div>
+
+        <div style={row}>
+          <span style={label}>💩 Poop trophy</span>
+          <PlayerChips value={poopWinner} onChange={setPoopWinner} nullable />
+        </div>
+
+        {msg ? (
+          <div style={{ textAlign: 'center', color: 'var(--green-bright)', fontSize: 14, padding: '8px 0' }}>{msg}</div>
+        ) : (
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn-secondary" style={{ flex: 1 }} onClick={onClose}>Skip</button>
+            <button className="btn-primary" style={{ flex: 2 }} onClick={save} disabled={saving}>
+              {saving ? 'Saving…' : '🏅 Save Tour Event'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
