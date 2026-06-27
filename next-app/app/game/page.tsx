@@ -35,6 +35,7 @@ export default function GamePage() {
   const activeGames     = useGameStore(s => s.activeGames);
   const wolfOrder       = useGameStore(s => s.wolfOrder);
   const wolfHoles       = useGameStore(s => s.wolfHoles);
+  const wolfOverrides   = useGameStore(s => s.wolfOverrides);
   const selectedTee     = useGameStore(s => s.selectedTee);
   const threePutts      = useGameStore(s => s.threePutts);
   const resetGame       = useGameStore(s => s.resetGame);
@@ -92,6 +93,7 @@ export default function GamePage() {
       activeGames:     { ...activeGames },
       wolfOrder:       [...wolfOrder],
       wolfHoles:       JSON.parse(JSON.stringify(wolfHoles)),
+      wolfOverrides:   { ...wolfOverrides },
       courseName,
       courseRating,
       slopeRating,

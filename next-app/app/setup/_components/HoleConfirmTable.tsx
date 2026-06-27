@@ -13,6 +13,7 @@ type ConflictColor = typeof CONFLICT_COLORS[0];
 function buildConflictMap(indices: number[]): Record<number, ConflictColor> {
   const groups: Record<number, number[]> = {};
   indices.forEach((si, h) => {
+    if (si === 0) return; // unset — skip conflict detection
     if (!groups[si]) groups[si] = [];
     groups[si].push(h);
   });
@@ -75,8 +76,9 @@ export default function HoleConfirmTable({ pars, indices, onParChange, onIdxChan
                 type="number"
                 inputMode="numeric"
                 min={1} max={18}
-                value={indices[i]}
-                onChange={e => onIdxChange(i, parseInt(e.target.value) || indices[i])}
+                value={indices[i] === 0 ? '' : indices[i]}
+                placeholder="—"
+                onChange={e => { const v = parseInt(e.target.value); onIdxChange(i, isNaN(v) ? 0 : v); }}
                 style={siInputStyle(i)}
               />
             </td>
@@ -95,8 +97,9 @@ export default function HoleConfirmTable({ pars, indices, onParChange, onIdxChan
                 type="number"
                 inputMode="numeric"
                 min={1} max={18}
-                value={indices[i + 9]}
-                onChange={e => onIdxChange(i + 9, parseInt(e.target.value) || indices[i + 9])}
+                value={indices[i + 9] === 0 ? '' : indices[i + 9]}
+                placeholder="—"
+                onChange={e => { const v = parseInt(e.target.value); onIdxChange(i + 9, isNaN(v) ? 0 : v); }}
                 style={siInputStyle(i + 9)}
               />
             </td>

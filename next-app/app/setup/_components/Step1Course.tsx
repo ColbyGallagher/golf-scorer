@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../../../store/gameStore';
-import { fetchSavedCourses } from '../../../lib/db';
+import { fetchSavedCourses, saveApiCourseToCloud, updateScorecard, invalidateCourseCache } from '../../../lib/db';
 import type { SavedCourse, TeeHole, HistoryRound } from '../../../lib/db';
+import { fetchCourseByName } from '../../../lib/courseApi';
 import { scanScorecardImage, saveScorecardToCloud } from '../../../lib/scan';
 import type { ScanResult } from '../../../lib/scan';
 import HoleConfirmTable from './HoleConfirmTable';
@@ -143,12 +144,22 @@ export default function Step1Course({ onNext }: Props) {
   // Applied tee name (for display after applying)
   const [appliedTee, setAppliedTee] = useState('');
 
+  // Track selected course from library (for saving SI back to Supabase)
+  const [selectedCourse, setSelectedCourse] = useState<SavedCourse | null>(null);
+  const [wasOriginallyMissingIndices, setWasOriginallyMissingIndices] = useState(false);
+  const [indicesSavedToCloud, setIndicesSavedToCloud] = useState(false);
+  const [indicesSaveMsg, setIndicesSaveMsg] = useState('');
+
   // Scan quality
   const [scanConfidence,    setScanConfidence]    = useState<number | undefined>(undefined);
   const [duplicateWarnings, setDuplicateWarnings] = useState<Record<string, number[]>>({});
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef  = useRef<HTMLInputElement>(null);
+
+  // Live API fetch state for nearby-not-in-library courses
+  const [fetchingFromApi, setFetchingFromApi] = useState<Set<string>>(new Set());
+  const [apiNotFound,     setApiNotFound]     = useState<Set<string>>(new Set());
 
   const courseHits = courseQuery
     ? allCourses.filter(c => c.course_name.toLowerCase().includes(courseQuery.toLowerCase()))
@@ -167,7 +178,9 @@ export default function Step1Course({ onNext }: Props) {
         .slice(0, 4)
     : [];
 
-  const hasDuplicateIndices = teeApplied && new Set(indices).size !== indices.length;
+  const missingIndices = teeApplied && indices.length === 18 && indices.every(i => i === 0);
+  const allIndicesFilled = indices.length === 18 && indices.every(i => i > 0);
+  const hasDuplicateIndices = teeApplied && !missingIndices && new Set(indices).size !== indices.length;
   const canProceed = teeApplied && holesConfirmed && !hasDuplicateIndices;
 
   // ── Course library ──────────────────────────────────────────────────────────
@@ -194,6 +207,10 @@ export default function Step1Course({ onNext }: Props) {
     setDuplicateWarnings({});
     setScanMsg(`✅ ${course.course_name} loaded from library`);
     setScanError('');
+    setSelectedCourse(course);
+    setWasOriginallyMissingIndices(false);
+    setIndicesSavedToCloud(false);
+    setIndicesSaveMsg('');
   }
 
   async function quickSelectCourse(recent: RecentCourse) {
@@ -222,6 +239,55 @@ export default function Step1Course({ onNext }: Props) {
       setScanError('');
       setScanConfidence(undefined);
       setDuplicateWarnings({});
+      setSelectedCourse(null);
+      setWasOriginallyMissingIndices(false);
+      setIndicesSavedToCloud(false);
+      setIndicesSaveMsg('');
+    }
+  }
+
+  // ── Live API fallback for nearby courses not yet in library ─────────────────
+
+  async function fetchNearbyFromApi(name: string) {
+    setFetchingFromApi(prev => new Set([...prev, name]));
+    try {
+      const result = await fetchCourseByName(name);
+      if (!result || Object.keys(result.tees).length === 0) {
+        setApiNotFound(prev => new Set([...prev, name]));
+        return;
+      }
+      // Save + refresh library in background (optimistic select below)
+      saveApiCourseToCloud(result.course_name, result.tees)
+        .then(() => fetchSavedCourses())
+        .then(courses => {
+          setAllCourses(courses);
+          // Grab the saved record's ID so we can update SI later if needed
+          const saved = courses.find(c => c.course_name.trim().toLowerCase() === result.course_name.trim().toLowerCase());
+          if (saved) setSelectedCourse(saved);
+        })
+        .catch(console.error);
+
+      // Select immediately without waiting for DB round-trip
+      setCourseName(result.course_name);
+      setCourseQuery('');
+      setShowDropdown(false);
+      setScanResult({ courseName: result.course_name, tees: result.tees });
+      setScanFile(null);
+      setScanSaved(true);
+      setTeeApplied(false);
+      setHolesConfirmed(false);
+      setAppliedTee('');
+      setScanConfidence(undefined);
+      setDuplicateWarnings({});
+      setScanMsg(`✅ ${result.course_name} loaded from database`);
+      setScanError('');
+      setWasOriginallyMissingIndices(false);
+      setIndicesSavedToCloud(false);
+      setIndicesSaveMsg('');
+    } catch {
+      setApiNotFound(prev => new Set([...prev, name]));
+    } finally {
+      setFetchingFromApi(prev => { const n = new Set(prev); n.delete(name); return n; });
     }
   }
 
@@ -290,6 +356,9 @@ export default function Step1Course({ onNext }: Props) {
     setTeeApplied(true);
     setAppliedTee(teeName);
     setHolesConfirmed(false);
+    setWasOriginallyMissingIndices(holes.every((h: TeeHole) => h.index === 0));
+    setIndicesSavedToCloud(false);
+    setIndicesSaveMsg('');
 
     // Save new scans to the cloud (once)
     if (!scanSaved && scanFile) {
@@ -311,6 +380,34 @@ export default function Step1Course({ onNext }: Props) {
 
   function handleIdxChange(hole: number, val: number) {
     const next = [...indices]; next[hole] = val; setIndices(next);
+  }
+
+  async function handleHolesConfirmed(checked: boolean) {
+    setHolesConfirmed(checked);
+    if (
+      checked &&
+      selectedCourse &&
+      wasOriginallyMissingIndices &&
+      allIndicesFilled &&
+      !indicesSavedToCloud
+    ) {
+      // User entered SI for a course that had none — persist back to Supabase
+      const updatedTees: Record<string, TeeHole[]> = {
+        ...selectedCourse.tees,
+        [appliedTee]: (selectedCourse.tees[appliedTee] ?? []).map((h, i) => ({
+          ...h,
+          par: pars[i] ?? h.par,
+          index: indices[i] ?? 0,
+        })),
+      };
+      const result = await updateScorecard(selectedCourse.id, courseName, updatedTees);
+      if (result === 'saved') {
+        setIndicesSavedToCloud(true);
+        setSelectedCourse({ ...selectedCourse, tees: updatedTees });
+        invalidateCourseCache();
+        setIndicesSaveMsg('✅ Stroke indices saved to course library');
+      }
+    }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -450,21 +547,40 @@ export default function Step1Course({ onNext }: Props) {
                 </div>
               )}
 
-              {/* Nearby courses not in library */}
+              {/* Nearby courses not in library — try live API fetch first */}
               {nearbyNotInLibrary.length > 0 && (
                 <>
                   <div style={{ padding: '6px 13px 4px', fontSize: 10, color: 'rgba(245,240,232,0.3)', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    📍 Nearby — scan to add
+                    📍 Nearby
                   </div>
-                  {nearbyNotInLibrary.map(name => (
-                    <div
-                      key={name}
-                      style={{ padding: '9px 13px', borderBottom: '1px solid rgba(255,255,255,0.04)', opacity: 0.55 }}
-                    >
-                      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--cream)' }}>{name}</div>
-                      <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)', marginTop: 2 }}>Not in library · take a photo to scan</div>
-                    </div>
-                  ))}
+                  {nearbyNotInLibrary.map(name => {
+                    const fetching  = fetchingFromApi.has(name);
+                    const notFound  = apiNotFound.has(name);
+                    const clickable = !fetching && !notFound;
+                    return (
+                      <div
+                        key={name}
+                        onMouseDown={clickable ? () => fetchNearbyFromApi(name) : undefined}
+                        style={{
+                          padding: '9px 13px',
+                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                          cursor: clickable ? 'pointer' : 'default',
+                          opacity: notFound ? 0.4 : 0.85,
+                        }}
+                        onMouseOver={e => { if (clickable) e.currentTarget.style.background = 'rgba(78,186,122,0.09)'; }}
+                        onMouseOut={e => { e.currentTarget.style.background = ''; }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--cream)' }}>{name}</div>
+                        <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)', marginTop: 2 }}>
+                          {fetching
+                            ? '⏳ Loading from database…'
+                            : notFound
+                              ? 'Not in database · scan a photo to add'
+                              : '📥 Tap to load scorecard data'}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </>
               )}
             </div>
@@ -572,6 +688,34 @@ export default function Step1Course({ onNext }: Props) {
       {teeApplied && (
         <div className="card">
           <div className="card-title">📋 Confirm Holes</div>
+
+          {/* Missing SI warning */}
+          {missingIndices && (
+            <div style={{
+              padding: '10px 11px', marginBottom: 10, borderRadius: 8, fontSize: 12,
+              background: 'rgba(255,165,0,0.1)', color: '#f5a623',
+              border: '1px solid rgba(255,165,0,0.35)',
+            }}>
+              ⚠️ <strong>No stroke indices for this course.</strong> Stableford scoring won&apos;t be available.
+              <div style={{ marginTop: 4, fontSize: 11, opacity: 0.8 }}>
+                Enter SI values (1–18) in the blank fields below to enable stableford
+                {selectedCourse ? ' — they\'ll be saved to the course library for next time.' : '.'}{' '}
+                Or leave blank and proceed without stableford.
+              </div>
+            </div>
+          )}
+
+          {/* SI saved confirmation */}
+          {indicesSaveMsg && (
+            <div style={{
+              padding: '8px 11px', marginBottom: 10, borderRadius: 8, fontSize: 12,
+              background: 'rgba(78,186,122,0.12)', color: 'var(--green-bright)',
+              border: '1px solid rgba(78,186,122,0.25)',
+            }}>
+              {indicesSaveMsg}
+            </div>
+          )}
+
           {duplicateWarnings[appliedTee] && (
             <div style={{
               padding: '8px 11px', marginBottom: 10, borderRadius: 8, fontSize: 12,
@@ -602,16 +746,22 @@ export default function Step1Course({ onNext }: Props) {
             borderRadius: 8,
           }}>
             <div style={{ fontSize: 12, color: '#f5a623', marginBottom: 8 }}>
-              ⚠️ Check that pars and stroke indices are correct — errors here affect all scoring and handicap calculations.
+              {missingIndices
+                ? '⚠️ Check pars are correct. Stableford scoring requires stroke indices.'
+                : '⚠️ Check that pars and stroke indices are correct — errors here affect all scoring and handicap calculations.'}
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={holesConfirmed}
-                onChange={e => setHolesConfirmed(e.target.checked)}
+                onChange={e => handleHolesConfirmed(e.target.checked)}
                 style={{ width: 16, height: 16, accentColor: 'var(--green-bright)', cursor: 'pointer' }}
               />
-              <span style={{ fontSize: 12, color: 'var(--cream)' }}>Pars and stroke indices are correct</span>
+              <span style={{ fontSize: 12, color: 'var(--cream)' }}>
+                {missingIndices && !allIndicesFilled
+                  ? 'Proceed without stroke indices (stableford unavailable)'
+                  : 'Pars and stroke indices are correct'}
+              </span>
             </label>
           </div>
         </div>

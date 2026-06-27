@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { stablefordPoints, calcSkins, calcWolf, calcNassau, getPlayingHandicap } from '../../lib/scoring';
+import { stablefordPoints, calcSkins, calcWolf, calcNassau, calcBestBall, teamTotals, getPlayingHandicap } from '../../lib/scoring';
 import type { HistoryRound } from '../../lib/db';
 import { saveRoundToCloud, syncRoundsFromCloud, deleteRoundFromCloud } from '../../lib/db';
 import type { PlayerId } from '../../lib/types';
@@ -205,8 +205,11 @@ function RoundCard({
   const teamBName = PLAYERS.filter(p => ta[p.id] === 'B').map(p => p.name).join(' & ') || 'Team B';
 
   const stbl = PLAYERS.map(p => ({ p, pts: roundStableford(r, p.id) }));
-  const totA = stbl.filter(x => ta[x.p.id] === 'A').reduce((s, x) => s + x.pts, 0);
-  const totB = stbl.filter(x => ta[x.p.id] === 'B').reduce((s, x) => s + x.pts, 0);
+  const multTotals = ag.teamMultiplier
+    ? teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta)
+    : null;
+  const totA = multTotals?.totA ?? stbl.filter(x => ta[x.p.id] === 'A').reduce((s, x) => s + x.pts, 0);
+  const totB = multTotals?.totB ?? stbl.filter(x => ta[x.p.id] === 'B').reduce((s, x) => s + x.pts, 0);
 
   const grossMap = Object.fromEntries(
     PLAYERS.map(p => [p.id, r.scores[p.id]?.reduce((s, v) => s + (v > 0 ? v : 0), 0) ?? 0])
@@ -229,7 +232,7 @@ function RoundCard({
 
   const wolfMap: Record<string, number> = {};
   if (ag.wolf && r.wolfOrder?.length) {
-    for (const wh of calcWolf(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, r.wolfOrder, r.wolfHoles || [])) {
+    for (const wh of calcWolf(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, r.wolfOrder, r.wolfHoles || [], r.wolfOverrides ?? {})) {
       for (const [pid, pts] of Object.entries(wh.pm)) {
         wolfMap[pid] = (wolfMap[pid] || 0) + pts;
       }
@@ -238,6 +241,11 @@ function RoundCard({
 
   const nassau = ag.nassau
     ? calcNassau(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta)
+    : null;
+
+  const bbNoSI = r.indices?.length === 18 && r.indices.every(i => i === 0);
+  const bestBall = ag.bestBall
+    ? calcBestBall(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta, bbNoSI)
     : null;
 
   const ctpCount: Record<string, number> = {};
@@ -250,7 +258,7 @@ function RoundCard({
   const hasCtp = ag.ctp  && Object.keys(ctpCount).length > 0;
   const hasLd  = ag.longDrive && Object.keys(ldCount).length > 0;
 
-  const hasTeam = ag.teamMultiplier || ag.nassau;
+  const hasTeam = ag.teamMultiplier || ag.bestBall || ag.nassau;
 
   return (
     <div className="history-round" onClick={onOpen}>
@@ -351,6 +359,22 @@ function RoundCard({
                 <td style={{ color: teamWinColor(totA, totB), textAlign: 'right' }}>{teamWinLabel(totA, totB)}</td>
               </tr>
             )}
+            {bestBall && (() => {
+              const isGross = bestBall.mode === 'gross';
+              const winA = isGross ? bestBall.totA < bestBall.totB : bestBall.totA > bestBall.totB;
+              const winB = isGross ? bestBall.totB < bestBall.totA : bestBall.totB > bestBall.totA;
+              const label = winA ? 'A ↑' : winB ? 'B ↑' : '=';
+              const color = winA ? 'var(--team-a)' : winB ? 'var(--team-b)' : 'var(--gold)';
+              const unit = isGross ? '' : 'pts';
+              return (
+                <tr>
+                  <td>Best Ball{isGross ? ' (gross)' : ''}</td>
+                  <td>{bestBall.totA}{unit}</td>
+                  <td>{bestBall.totB}{unit}</td>
+                  <td style={{ color, textAlign: 'right' }}>{label}</td>
+                </tr>
+              );
+            })()}
             {nassau && <>
               <tr>
                 <td>Front 9</td>

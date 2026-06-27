@@ -60,6 +60,7 @@ interface GameState {
   activeGames: ActiveGames;
   wolfOrder: PlayerId[];
   wolfHoles: WolfHole[];
+  wolfOverrides: Record<number, PlayerId>;
   gameActive: boolean;
   setupStep: number;
   threePutts: PlayerThreePutts;
@@ -83,6 +84,7 @@ interface GameActions {
   setActiveGames: (games: Partial<ActiveGames>) => void;
   setWolfOrder: (order: PlayerId[]) => void;
   setWolfHole: (hole: number, data: Partial<WolfHole>) => void;
+  setWolfOverride: (hole: number, playerId: PlayerId) => void;
   setCompWinner: (hole: number, data: Partial<CompWinner>) => void;
   setGameActive: (active: boolean) => void;
   setSetupStep: (step: number) => void;
@@ -122,9 +124,10 @@ const defaultState: GameState = {
   courseRating: 71.0,
   slopeRating: 113,
   teamAssignments: { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' },
-  activeGames: { teamMultiplier: true, skins: false, nassau: false, ctp: true, longDrive: true, wolf: false, gross: false, net: false },
+  activeGames: { teamMultiplier: true, bestBall: false, skins: false, nassau: false, ctp: true, longDrive: true, wolf: false, gross: false, net: false },
   wolfOrder: PLAYERS.map(p => p.id),
   wolfHoles: Array(18).fill(null).map(() => ({ mode: null, partnerId: null })),
+  wolfOverrides: {},
   gameActive: false,
   setupStep: 1,
   threePutts: initThreePutts(),
@@ -185,6 +188,9 @@ export const useGameStore = create<GameState & GameActions>()(
       return { wolfHoles: next };
     }),
 
+  setWolfOverride: (hole, playerId) =>
+    set(s => ({ wolfOverrides: { ...s.wolfOverrides, [hole]: playerId } })),
+
   setCompWinner: (hole, data) =>
     set(s => ({
       compWinners: { ...s.compWinners, [hole]: { ...s.compWinners[hole], ...data } },
@@ -199,6 +205,7 @@ export const useGameStore = create<GameState & GameActions>()(
     threePutts: initThreePutts(),
     compWinners: initCompWinners(),
     wolfHoles: Array(18).fill(null).map(() => ({ mode: null, partnerId: null })),
+    wolfOverrides: {},
     dailyHandicapOverrides: {},
   }),
 }),

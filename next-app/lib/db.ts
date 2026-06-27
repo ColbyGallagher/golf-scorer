@@ -24,6 +24,7 @@ export interface HistoryRound {
   activeGames: ActiveGames;
   wolfOrder: PlayerId[];
   wolfHoles: WolfHole[];
+  wolfOverrides?: Record<number, string>;
   courseName: string;
   courseRating: number;
   slopeRating: number;
@@ -46,6 +47,7 @@ function entryToRow(entry: HistoryRound) {
     active_games:     entry.activeGames,
     wolf_order:       entry.wolfOrder,
     wolf_holes:       entry.wolfHoles,
+    wolf_overrides:   entry.wolfOverrides ?? {},
     course_name:      entry.courseName,
     course_rating:    entry.courseRating,
     slope_rating:     entry.slopeRating,
@@ -70,6 +72,7 @@ function rowToEntry(row: any): HistoryRound {
     activeGames:      row.active_games ?? {},
     wolfOrder:        row.wolf_order ?? [],
     wolfHoles:        row.wolf_holes ?? [],
+    wolfOverrides:    row.wolf_overrides ?? {},
     courseName:       row.course_name ?? '',
     courseRating:     row.course_rating ?? 71.0,
     slopeRating:      row.slope_rating ?? 113,
@@ -149,6 +152,30 @@ export async function updateScorecard(
       .from('scorecards')
       .update({ course_name: courseName, tees })
       .eq('id', id);
+    if (error) throw error;
+    cachedCourses = null;
+    return 'saved';
+  } catch { return 'error'; }
+}
+
+export async function saveApiCourseToCloud(
+  courseName: string,
+  tees: Record<string, TeeHole[]>,
+): Promise<'saved' | 'exists' | 'error'> {
+  try {
+    const { data: existing } = await supabase
+      .from('scorecards')
+      .select('id')
+      .ilike('course_name', courseName)
+      .limit(1);
+    if (existing?.length) return 'exists';
+
+    const { error } = await supabase.from('scorecards').insert({
+      course_name: courseName,
+      selected_tee: '',
+      tees,
+      image_path: null,
+    });
     if (error) throw error;
     cachedCourses = null;
     return 'saved';

@@ -18,6 +18,7 @@ export default function CompsPage() {
   const threePutts             = useGameStore(s => s.threePutts);
   const wolfOrder              = useGameStore(s => s.wolfOrder);
   const wolfHoles              = useGameStore(s => s.wolfHoles);
+  const wolfOverrides          = useGameStore(s => s.wolfOverrides);
 
   const playingHandicaps = getEffectivePlayingHandicaps(handicaps, dailyHandicapOverrides, courseRating, slopeRating, pars);
 
@@ -74,7 +75,7 @@ export default function CompsPage() {
 
         {/* Wolf results */}
         {activeGames.wolf && (
-          <WolfResults scores={scores} pars={pars} handicaps={playingHandicaps} indices={indices} wolfOrder={wolfOrder} wolfHoles={wolfHoles} />
+          <WolfResults scores={scores} pars={pars} handicaps={playingHandicaps} indices={indices} wolfOrder={wolfOrder} wolfHoles={wolfHoles} wolfOverrides={wolfOverrides} />
         )}
 
         {/* Skins results (read-only summary) */}
@@ -107,12 +108,13 @@ export default function CompsPage() {
   );
 }
 
-function WolfResults({ scores, pars, handicaps, indices, wolfOrder, wolfHoles }: {
+function WolfResults({ scores, pars, handicaps, indices, wolfOrder, wolfHoles, wolfOverrides }: {
   scores: Record<PlayerId, number[]>; pars: number[];
   handicaps: Record<PlayerId, number>; indices: number[];
   wolfOrder: PlayerId[]; wolfHoles: { mode: string | null; partnerId: string | null }[];
+  wolfOverrides: Record<number, string>;
 }) {
-  const results = calcWolf(PLAYERS, scores, pars, handicaps, indices, wolfOrder, wolfHoles as Parameters<typeof calcWolf>[6]);
+  const results = calcWolf(PLAYERS, scores, pars, handicaps, indices, wolfOrder, wolfHoles as Parameters<typeof calcWolf>[6], wolfOverrides);
   const totals  = Object.fromEntries(PLAYERS.map(p => [p.id, 0]));
   results.forEach(r => PLAYERS.forEach(p => { totals[p.id] += r.pm[p.id] || 0; }));
   const sorted  = [...PLAYERS].sort((a, b) => totals[b.id] - totals[a.id]);

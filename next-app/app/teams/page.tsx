@@ -62,7 +62,7 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
   scores: Record<PlayerId, number[]>; pars: number[]; handicaps: Record<PlayerId, number>;
   indices: number[]; teamAssignments: Record<PlayerId, Team>; activeGames: { teamMultiplier: boolean };
 }) {
-  const { totA, totB, mult } = teamTotals(PLAYERS, scores, pars, handicaps, indices, teamAssignments);
+  const { totA, totB } = teamTotals(PLAYERS, scores, pars, handicaps, indices, teamAssignments);
   const diff = totA - totB;
 
   return (
@@ -91,7 +91,7 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
       <div className="team-card team-a-card">
         <div className="team-name">{teamAName}</div>
         <div className="team-score-row">
-          <span className="team-score-label">Combined Stableford Total</span>
+          <span className="team-score-label">Multiplier Total</span>
           <span className="team-score-val" style={{ color: 'var(--team-a)' }}>{totA} pts</span>
         </div>
         {teamAPlayers.map(p => (
@@ -107,7 +107,7 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
       <div className="team-card team-b-card">
         <div className="team-name">{teamBName}</div>
         <div className="team-score-row">
-          <span className="team-score-label">Combined Stableford Total</span>
+          <span className="team-score-label">Multiplier Total</span>
           <span className="team-score-val" style={{ color: 'var(--team-b)' }}>{totB} pts</span>
         </div>
         {teamBPlayers.map(p => (
@@ -123,27 +123,34 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
       {activeGames.teamMultiplier && (
         <div className="card">
           <div className="card-title">✖️ Multiplier Breakdown</div>
-          <div className="team-score-row" style={{ marginBottom: 7 }}>
-            <span className="team-score-label">Running Total</span>
-            <span className="team-score-val" style={{ color: 'var(--gold)' }}>{mult}</span>
-          </div>
           <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.35)', marginBottom: 7 }}>
-            Combined team Stableford per hole × each other
+            Player 1 pts × Player 2 pts per hole, per team
+          </div>
+          <div style={{ display: 'flex', fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(245,240,232,0.25)', marginBottom: 4, paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <span style={{ minWidth: 28 }} />
+            <span style={{ flex: 1, color: 'var(--team-a)' }}>{teamAName}</span>
+            <span style={{ flex: 1, color: 'var(--team-b)' }}>{teamBName}</span>
           </div>
           {Array.from({ length: 18 }, (_, h) => {
             if (!PLAYERS.some(p => scores[p.id as PlayerId][h] > 0)) return null;
-            const { sumA, sumB, product } = teamMultiplierHole(h, PLAYERS, scores, pars, handicaps, indices, teamAssignments);
+            const { ptsA, ptsB, scoreA, scoreB } = teamMultiplierHole(h, PLAYERS, scores, pars, handicaps, indices, teamAssignments);
+            const winner = scoreA > scoreB ? 'A' : scoreB > scoreA ? 'B' : null;
             return (
-              <div key={h} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 11 }}>
+              <div key={h} style={{ display: 'flex', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 11 }}>
                 <span style={{ fontFamily: "'DM Mono', monospace", color: 'var(--gold)', minWidth: 28 }}>H{h + 1}</span>
-                <span style={{ color: 'var(--team-a)', minWidth: 26, fontFamily: "'DM Mono', monospace" }}>{sumA}pt</span>
-                <span style={{ color: 'rgba(245,240,232,0.3)' }}>×</span>
-                <span style={{ color: 'var(--team-b)', minWidth: 26, fontFamily: "'DM Mono', monospace" }}>{sumB}pt</span>
-                <span style={{ color: 'rgba(245,240,232,0.3)' }}>=</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: product > 0 ? 'var(--cream)' : 'rgba(245,240,232,0.25)' }}>{product}</span>
+                <span style={{ flex: 1, fontFamily: "'DM Mono', monospace", color: winner === 'A' ? 'var(--team-a)' : 'rgba(245,240,232,0.45)' }}>
+                  {ptsA.join('×')}={scoreA}
+                </span>
+                <span style={{ flex: 1, fontFamily: "'DM Mono', monospace", color: winner === 'B' ? 'var(--team-b)' : 'rgba(245,240,232,0.45)' }}>
+                  {ptsB.join('×')}={scoreB}
+                </span>
               </div>
             );
           })}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 12, fontWeight: 700 }}>
+            <span style={{ color: 'var(--team-a)' }}>{teamAName}: {totA}</span>
+            <span style={{ color: 'var(--team-b)' }}>{teamBName}: {totB}</span>
+          </div>
         </div>
       )}
     </>

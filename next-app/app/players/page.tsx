@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { stablefordPoints } from '../../lib/scoring';
+import { stablefordPoints, teamTotals } from '../../lib/scoring';
 import type { HistoryRound } from '../../lib/db';
 import type { PlayerId } from '../../lib/types';
 
@@ -38,13 +38,15 @@ interface PlayerStats {
   avgGross: number | null;
   bestGross: number | null;
   totalThreePutts: number;
-  wins: number;
+  teamWins: number;
+  individualWins: number;
+  longDriveWins: number;
 }
 
 function computeStats(rounds: HistoryRound[], pid: string): PlayerStats {
   const played = playerRounds(rounds, pid);
   if (!played.length) {
-    return { roundsPlayed: 0, avgPts: null, bestPts: null, avgGross: null, bestGross: null, totalThreePutts: 0, wins: 0 };
+    return { roundsPlayed: 0, avgPts: null, bestPts: null, avgGross: null, bestGross: null, totalThreePutts: 0, teamWins: 0, individualWins: 0, longDriveWins: 0 };
   }
   const ptsList  = played.map(r => roundStableford(r, pid));
   const grossList = played.map(r => roundGross(r, pid)).filter(g => g > 0);
@@ -52,14 +54,23 @@ function computeStats(rounds: HistoryRound[], pid: string): PlayerStats {
     const tp = r.threePutts?.[pid];
     return sum + (Array.isArray(tp) ? tp.filter(Boolean).length : 0);
   }, 0);
-  const wins = played.filter(r => {
+  const teamWins = played.filter(r => {
     const ta = r.teamAssignments || {};
     const myTeam = ta[pid];
     if (!myTeam) return false;
-    const totA = PLAYERS.filter(p => ta[p.id] === 'A').reduce((s, p) => s + roundStableford(r, p.id), 0);
-    const totB = PLAYERS.filter(p => ta[p.id] === 'B').reduce((s, p) => s + roundStableford(r, p.id), 0);
+    const { totA, totB } = teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
     return myTeam === 'A' ? totA > totB : totB > totA;
   }).length;
+  const individualWins = played.filter((r, i) => {
+    const myPts = ptsList[i];
+    const others = Object.keys(r.scores).filter(p => p !== pid && r.scores[p]?.some(s => s > 0));
+    if (!others.length) return false;
+    return others.every(p => roundStableford(r, p) < myPts);
+  }).length;
+  const longDriveWins = played.reduce((sum, r) => {
+    if (!r.compWinners) return sum;
+    return sum + Object.values(r.compWinners).filter(cw => cw?.ld === pid).length;
+  }, 0);
   return {
     roundsPlayed: played.length,
     avgPts: ptsList.reduce((a, b) => a + b, 0) / ptsList.length,
@@ -67,7 +78,9 @@ function computeStats(rounds: HistoryRound[], pid: string): PlayerStats {
     avgGross: grossList.length ? grossList.reduce((a, b) => a + b, 0) / grossList.length : null,
     bestGross: grossList.length ? Math.min(...grossList) : null,
     totalThreePutts,
-    wins,
+    teamWins,
+    individualWins,
+    longDriveWins,
   };
 }
 
@@ -120,8 +133,8 @@ function PlayerCard({ pid, name, color, handicap, stats, editing, onChangeHandic
               {stats.roundsPlayed > 0 ? (
                 <>
                   <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)' }}>{stats.roundsPlayed} round{stats.roundsPlayed !== 1 ? 's' : ''}</div>
-                  <div style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 600 }}>
-                    {stats.wins}W · {stats.roundsPlayed - stats.wins}L
+                  <div style={{ fontSize: 10, color: 'var(--gold)', fontWeight: 600 }}>
+                    {stats.teamWins}TW · {stats.individualWins}IW{stats.longDriveWins > 0 ? ` · ${stats.longDriveWins}LD` : ''}
                   </div>
                 </>
               ) : (
@@ -170,11 +183,22 @@ function PlayerDetail({ pid, name, color, handicap, rounds, onClose }: {
         {stats.roundsPlayed > 0 && (
           <div className="card">
             <div className="card-title">📊 Career Stats</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 8 }}>
               {([
                 { label: 'Rounds', value: String(stats.roundsPlayed) },
-                { label: 'Wins', value: `${stats.wins}/${stats.roundsPlayed}` },
                 { label: '3-Putts', value: String(stats.totalThreePutts) },
+              ] as const).map(({ label, value }) => (
+                <div key={label} style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: '10px 6px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gold)' }}>{value}</div>
+                  <div style={{ fontSize: 9, color: 'rgba(245,240,232,0.35)', marginTop: 2, letterSpacing: 0.5, textTransform: 'uppercase' }}>{label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
+              {([
+                { label: 'Team Wins', value: `${stats.teamWins}/${stats.roundsPlayed}` },
+                { label: 'Ind Wins', value: `${stats.individualWins}/${stats.roundsPlayed}` },
+                { label: 'Long Drive', value: String(stats.longDriveWins) },
               ] as const).map(({ label, value }) => (
                 <div key={label} style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: '10px 6px', textAlign: 'center' }}>
                   <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gold)' }}>{value}</div>
@@ -201,8 +225,7 @@ function PlayerDetail({ pid, name, color, handicap, rounds, onClose }: {
             const gross = roundGross(r, pid);
             const ta    = r.teamAssignments || {};
             const myTeam = ta[pid];
-            const totA  = PLAYERS.filter(p => ta[p.id] === 'A').reduce((s, p) => s + roundStableford(r, p.id), 0);
-            const totB  = PLAYERS.filter(p => ta[p.id] === 'B').reduce((s, p) => s + roundStableford(r, p.id), 0);
+            const { totA, totB } = teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
             const won   = myTeam === 'A' ? totA > totB : myTeam === 'B' ? totB > totA : null;
             const tp    = Array.isArray(r.threePutts?.[pid]) ? r.threePutts[pid].filter(Boolean).length : 0;
 

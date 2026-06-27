@@ -26,6 +26,7 @@ export interface CompWinner {
 
 export interface ActiveGames {
   teamMultiplier: boolean;
+  bestBall: boolean;
   skins: boolean;
   nassau: boolean;
   ctp: boolean;
@@ -33,4 +34,59 @@ export interface ActiveGames {
   wolf: boolean;
   gross: boolean;
   net: boolean;
+}
+
+// ─── DE Tour types ────────────────────────────────────────────────────────────
+
+export interface TourEvent {
+  id: string;
+  month: string;
+  season: number;
+  courseName: string;
+  date: string;
+  courseRating: number;
+  slopeRating: number;
+  par: number;
+  teamA: PlayerId[];
+  teamB: PlayerId[];
+  teamFormat: 'multiplier' | 'worstBall' | 'bestBall';
+  teamWinner: 'A' | 'B' | null;
+  ctpWinner: PlayerId | null;
+  ldWinner: PlayerId | null;
+  roundHandicaps: Record<PlayerId, number>;
+  threePuttCounts: Record<PlayerId, number>;
+  poopWinner: PlayerId | null;
+  roundId: number | null;
+}
+
+export interface HandicapScore {
+  playerId: PlayerId;
+  date: string;
+  course: string;
+  score: number;
+  rating: number;
+  slope: number;
+  differential: number;
+}
+
+export interface TourPlayerPoints {
+  net: number;
+  threePlus: number;
+  team: number;
+  par3: number;
+  par5: number;
+  total: number;
+}
+
+export interface SeasonEntry {
+  playerId: PlayerId;
+  total: number;
+  net: number;
+  threePlus: number;
+  team: number;
+  par3: number;
+  par5: number;
+  threePutts: number;
+  poops: number;
+  behind: number;
 }

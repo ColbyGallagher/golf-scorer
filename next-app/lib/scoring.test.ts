@@ -142,27 +142,29 @@ describe('totalStableford', () => {
 // ── teamMultiplierHole ───────────────────────────────────────────────────────
 
 describe('teamMultiplierHole', () => {
-  it('returns 0 product when no scores', () => {
+  it('returns 0 scores when no scores', () => {
     const scores = emptyScores();
     const r = teamMultiplierHole(0, PLAYERS, scores, PARS, HANDICAPS, INDICES, TEAMS);
-    expect(r.product).toBe(0);
+    expect(r.scoreA).toBe(0);
+    expect(r.scoreB).toBe(0);
   });
 
-  it('multiplies team Stableford sums', () => {
+  it('multiplies each team\'s players stableford together', () => {
     const scores = emptyScores();
     // H1: par 5, SI 10
     // colby (HI18, SI10<=18): 1 stroke → gross 6 = net 5 = par → 2pts
-    // mitch (HI14, SI10<=14): 1 stroke → gross 6 = net 5 = par → 2pts  → sumA = 4
+    // mitch (HI14, SI10<=14): 1 stroke → gross 6 = net 5 = par → 2pts  → scoreA = 2×2 = 4
     // dave  (HI16, SI10<=16): 1 stroke → gross 6 = net 5 = par → 2pts
-    // scott (HI0):  0 strokes → gross 5 = net 5 = par → 2pts           → sumB = 4
+    // scott (HI0):  0 strokes → gross 5 = net 5 = par → 2pts            → scoreB = 2×2 = 4
     scores.colby[0] = 6;
     scores.mitch[0] = 6;
     scores.dave[0]  = 6;
     scores.scott[0] = 5;
     const r = teamMultiplierHole(0, PLAYERS, scores, PARS, HANDICAPS, INDICES, TEAMS);
-    expect(r.sumA).toBe(4);
-    expect(r.sumB).toBe(4);
-    expect(r.product).toBe(16);
+    expect(r.ptsA).toEqual([2, 2]);
+    expect(r.ptsB).toEqual([2, 2]);
+    expect(r.scoreA).toBe(4);
+    expect(r.scoreB).toBe(4);
   });
 });
 
@@ -172,7 +174,7 @@ describe('teamTotals', () => {
   it('returns zeroes when no scores', () => {
     const scores = emptyScores();
     const r = teamTotals(PLAYERS, scores, PARS, HANDICAPS, INDICES, TEAMS);
-    expect(r).toEqual({ totA: 0, totB: 0, mult: 0 });
+    expect(r).toEqual({ totA: 0, totB: 0 });
   });
 });
 

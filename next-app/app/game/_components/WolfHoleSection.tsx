@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useGameStore, PLAYERS } from '../../../store/gameStore';
 import { stablefordPoints, getEffectivePlayingHandicaps } from '../../../lib/scoring';
 import type { PlayerId, WolfMode } from '../../../lib/types';
@@ -21,9 +22,12 @@ function modeStyle(active: boolean): React.CSSProperties {
 }
 
 export default function WolfHoleSection({ hole }: Props) {
+  const [showPicker, setShowPicker] = useState(false);
+
   const activeGames            = useGameStore(s => s.activeGames);
   const wolfOrder              = useGameStore(s => s.wolfOrder);
   const wolfHoles              = useGameStore(s => s.wolfHoles);
+  const wolfOverrides          = useGameStore(s => s.wolfOverrides);
   const scores                 = useGameStore(s => s.scores);
   const pars                   = useGameStore(s => s.pars);
   const handicaps              = useGameStore(s => s.handicaps);
@@ -32,12 +36,13 @@ export default function WolfHoleSection({ hole }: Props) {
   const slopeRating            = useGameStore(s => s.slopeRating);
   const indices                = useGameStore(s => s.indices);
   const setWolfHole            = useGameStore(s => s.setWolfHole);
+  const setWolfOverride        = useGameStore(s => s.setWolfOverride);
 
   const playingHandicaps = getEffectivePlayingHandicaps(handicaps, dailyHandicapOverrides, courseRating, slopeRating, pars);
 
   if (!activeGames.wolf) return null;
 
-  const wolfId = wolfOrder.length ? wolfOrder[hole % wolfOrder.length] : null;
+  const wolfId = wolfOverrides[hole] ?? (wolfOrder.length ? wolfOrder[hole % wolfOrder.length] : null);
   const wolf   = PLAYERS.find(p => p.id === wolfId);
   if (!wolf || !wolfId) return null;
 
@@ -52,6 +57,13 @@ export default function WolfHoleSection({ hole }: Props) {
 
   function togglePartner(pid: PlayerId) {
     setWolfHole(hole, { partnerId: wh.partnerId === pid ? null : pid });
+  }
+
+  function pickWolf(pid: PlayerId) {
+    setWolfOverride(hole, pid);
+    // clear partner if new wolf is the current partner
+    if (wh.partnerId === pid) setWolfHole(hole, { partnerId: null });
+    setShowPicker(false);
   }
 
   // Live result preview when scores are entered
@@ -88,8 +100,19 @@ export default function WolfHoleSection({ hole }: Props) {
     <div style={{ background: 'rgba(201,168,76,0.05)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 11, padding: '11px 13px', marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
         <span style={{ fontSize: 14 }}>🐺</span>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: wolf.color }} />
-        <span style={{ fontSize: 13, fontWeight: 700 }}>{wolf.name}</span>
+        <button
+          onClick={() => setShowPicker(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            background: showPicker ? 'rgba(201,168,76,0.12)' : 'transparent',
+            border: '1px solid', borderColor: showPicker ? 'rgba(201,168,76,0.4)' : 'rgba(201,168,76,0.2)',
+            borderRadius: 8, padding: '2px 8px 2px 5px', cursor: 'pointer',
+          }}
+        >
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: wolf.color }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg)' }}>{wolf.name}</span>
+          <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)', marginLeft: 1 }}>▾</span>
+        </button>
         <span style={{ fontSize: 11, color: 'rgba(245,240,232,0.35)' }}>is Wolf</span>
         {hole >= 16 && (
           <span style={{ fontSize: 9, background: 'rgba(201,168,76,0.15)', color: 'var(--gold)', padding: '2px 7px', borderRadius: 8, marginLeft: 'auto' }}>
@@ -97,6 +120,29 @@ export default function WolfHoleSection({ hole }: Props) {
           </span>
         )}
       </div>
+
+      {showPicker && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          {PLAYERS.map(p => {
+            const active = p.id === wolfId;
+            return (
+              <button
+                key={p.id}
+                onClick={() => pickWolf(p.id as PlayerId)}
+                style={{
+                  ...MODE_BTN_BASE,
+                  background: active ? `${p.color}22` : 'rgba(245,240,232,0.04)',
+                  borderColor: active ? p.color : 'rgba(245,240,232,0.12)',
+                  color: active ? p.color : 'rgba(245,240,232,0.55)',
+                }}
+              >
+                <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: p.color, marginRight: 4, verticalAlign: 'middle' }} />
+                {p.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {([['blind', '🎯 Blind (8)'], ['alone', '🚶 Alone (4)'], ['partner', '🤝 Partner (2)']] as [WolfMode, string][]).map(([m, label]) => (

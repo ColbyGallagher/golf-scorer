@@ -60,9 +60,10 @@ export function totalStableford(
 // ─── Team multiplier ─────────────────────────────────────────────────────────
 
 export interface TeamHoleResult {
-  sumA: number;
-  sumB: number;
-  product: number;
+  ptsA: number[];  // stableford pts per Team A player
+  ptsB: number[];  // stableford pts per Team B player
+  scoreA: number;  // product of ptsA
+  scoreB: number;  // product of ptsB
 }
 
 export function teamMultiplierHole(
@@ -74,22 +75,23 @@ export function teamMultiplierHole(
   indices: number[],
   teamAssignments: Record<string, 'A' | 'B'>,
 ): TeamHoleResult {
-  const pts = (team: 'A' | 'B') =>
+  const teamPts = (team: 'A' | 'B') =>
     players
       .filter(p => teamAssignments[p.id] === team)
-      .reduce(
-        (s, p) => s + (stablefordPoints(scores[p.id][hole], pars[hole], p.id, hole, handicaps, indices) ?? 0),
-        0,
-      );
-  const sumA = pts('A');
-  const sumB = pts('B');
-  return { sumA, sumB, product: sumA * sumB };
+      .map(p => stablefordPoints(scores[p.id][hole], pars[hole], p.id, hole, handicaps, indices) ?? 0);
+  const ptsA = teamPts('A');
+  const ptsB = teamPts('B');
+  return {
+    ptsA,
+    ptsB,
+    scoreA: ptsA.reduce((acc, p) => acc * p, 1),
+    scoreB: ptsB.reduce((acc, p) => acc * p, 1),
+  };
 }
 
 export interface TeamTotals {
   totA: number;
   totB: number;
-  mult: number;
 }
 
 export function teamTotals(
@@ -100,19 +102,54 @@ export function teamTotals(
   indices: number[],
   teamAssignments: Record<string, 'A' | 'B'>,
 ): TeamTotals {
-  let totA = 0, totB = 0, mult = 0;
+  let totA = 0, totB = 0;
   for (let h = 0; h < 18; h++) {
     const r = teamMultiplierHole(h, players, scores, pars, handicaps, indices, teamAssignments);
-    totA += r.sumA;
-    totB += r.sumB;
-    mult += r.product;
+    totA += r.scoreA;
+    totB += r.scoreB;
   }
-  return { totA, totB, mult };
+  return { totA, totB };
+}
+
+// ─── Best Ball ───────────────────────────────────────────────────────────────
+
+export interface BestBallResult {
+  totA: number;
+  totB: number;
+  mode: 'stableford' | 'gross';
+}
+
+export function calcBestBall(
+  players: Player[],
+  scores: Record<string, number[]>,
+  pars: number[],
+  handicaps: Record<string, number>,
+  indices: number[],
+  teamAssignments: Record<string, 'A' | 'B'>,
+  useGross = false,
+): BestBallResult {
+  let totA = 0, totB = 0;
+  for (let h = 0; h < 18; h++) {
+    for (const team of ['A', 'B'] as const) {
+      const teamPlayers = players.filter(p => teamAssignments[p.id] === team);
+      const played = teamPlayers.filter(p => scores[p.id][h] > 0);
+      if (!played.length) continue;
+      const best = useGross
+        ? Math.min(...played.map(p => scores[p.id][h]))
+        : Math.max(...teamPlayers.map(p =>
+            stablefordPoints(scores[p.id][h], pars[h], p.id, h, handicaps, indices) ?? 0,
+          ));
+      if (team === 'A') totA += best;
+      else totB += best;
+    }
+  }
+  return { totA, totB, mode: useGross ? 'gross' : 'stableford' };
 }
 
 // ─── Wolf ────────────────────────────────────────────────────────────────────
 
-export function getWolfId(hole: number, wolfOrder: string[]): string | null {
+export function getWolfId(hole: number, wolfOrder: string[], overrides: Record<number, string> = {}): string | null {
+  if (overrides[hole]) return overrides[hole];
   return wolfOrder.length ? wolfOrder[hole % wolfOrder.length] : null;
 }
 
@@ -132,9 +169,10 @@ export function calcWolf(
   indices: number[],
   wolfOrder: string[],
   wolfHoles: WolfHole[],
+  wolfOverrides: Record<number, string> = {},
 ): WolfHoleResult[] {
   return Array.from({ length: 18 }, (_, h) => {
-    const wolfId = getWolfId(h, wolfOrder);
+    const wolfId = getWolfId(h, wolfOrder, wolfOverrides);
     const wh     = wolfHoles[h];
     const pm: Record<string, number> = Object.fromEntries(players.map(p => [p.id, 0]));
 
