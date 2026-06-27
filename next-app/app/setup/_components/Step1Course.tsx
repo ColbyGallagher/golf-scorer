@@ -92,6 +92,7 @@ export default function Step1Course({ onNext }: Props) {
   // GPS / nearby courses
   const [nearbyCourseNames, setNearbyCourseNames] = useState<string[]>([]);
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'fetching' | 'ready'>('idle');
+  const [userSuburb, setUserSuburb] = useState('');
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -101,14 +102,21 @@ export default function Step1Course({ onNext }: Props) {
         setGpsStatus('fetching');
         const { latitude: lat, longitude: lng } = pos.coords;
         try {
-          const q = `[out:json][timeout:15];(node["leisure"="golf_course"](around:25000,${lat},${lng});way["leisure"="golf_course"](around:25000,${lat},${lng});relation["leisure"="golf_course"](around:25000,${lat},${lng}););out tags;`;
-          const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
-          const data = await res.json();
-          const elements: Array<{ tags?: { name?: string } }> = data.elements ?? [];
-          const names: string[] = elements
-            .map(el => el.tags?.name)
-            .filter((n): n is string => !!n);
+          const [overpassRes, geocodeRes] = await Promise.all([
+            fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(
+              `[out:json][timeout:15];(node["leisure"="golf_course"](around:5000,${lat},${lng});way["leisure"="golf_course"](around:5000,${lat},${lng});relation["leisure"="golf_course"](around:5000,${lat},${lng}););out tags;`
+            )}`),
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=13`, {
+              headers: { 'Accept-Language': 'en' },
+            }),
+          ]);
+          const [overpassData, geocodeData] = await Promise.all([overpassRes.json(), geocodeRes.json()]);
+          const elements: Array<{ tags?: { name?: string } }> = overpassData.elements ?? [];
+          const names: string[] = elements.map(el => el.tags?.name).filter((n): n is string => !!n);
           setNearbyCourseNames([...new Set(names)]);
+          const addr = geocodeData.address ?? {};
+          const suburb = addr.suburb ?? addr.neighbourhood ?? addr.village ?? addr.town ?? addr.city ?? '';
+          setUserSuburb(suburb);
         } catch { /* silent fail */ }
         setGpsStatus('ready');
       },
@@ -350,7 +358,12 @@ export default function Step1Course({ onNext }: Props) {
               <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.35)' }}>📍 Finding courses…</span>
             )}
             {gpsStatus === 'ready' && nearbyCourseNames.length > 0 && (
-              <span style={{ fontSize: 10, color: 'rgba(78,186,122,0.7)' }}>📍 {nearbyCourseNames.length} course{nearbyCourseNames.length !== 1 ? 's' : ''} near you</span>
+              <span style={{ fontSize: 10, color: 'rgba(78,186,122,0.7)' }}>
+                📍{userSuburb ? ` ${userSuburb} —` : ''} {nearbyCourseNames.length} course{nearbyCourseNames.length !== 1 ? 's' : ''} near you
+              </span>
+            )}
+            {gpsStatus === 'ready' && nearbyCourseNames.length === 0 && userSuburb && (
+              <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.3)' }}>📍 {userSuburb}</span>
             )}
           </div>
           <input
