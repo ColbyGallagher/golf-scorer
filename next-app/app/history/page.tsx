@@ -48,6 +48,7 @@ export default function HistoryPage() {
   const activeGames     = useGameStore(s => s.activeGames);
   const wolfOrder       = useGameStore(s => s.wolfOrder);
   const wolfHoles       = useGameStore(s => s.wolfHoles);
+  const wolfOverrides   = useGameStore(s => s.wolfOverrides);
   const selectedTee     = useGameStore(s => s.selectedTee);
   const threePutts      = useGameStore(s => s.threePutts);
   const isTourRound     = useGameStore(s => s.isTourRound);
@@ -84,6 +85,7 @@ export default function HistoryPage() {
       activeGames:    { ...activeGames },
       wolfOrder:      [...wolfOrder],
       wolfHoles:      JSON.parse(JSON.stringify(wolfHoles)),
+      wolfOverrides:  { ...wolfOverrides },
       courseName,
       courseRating,
       slopeRating,

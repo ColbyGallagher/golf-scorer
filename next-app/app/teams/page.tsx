@@ -27,7 +27,7 @@ export default function TeamsPage() {
   return (
     <>
       <GameNav />
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '14px 14px 40px' }}>
+      <div className="card-page-wrap">
         {!hasTeamFormat && !activeGames.skins && !activeGames.gross && !activeGames.net ? (
           <div className="empty-state" style={{ padding: '40px 20px' }}>No team formats active for this round.</div>
         ) : (

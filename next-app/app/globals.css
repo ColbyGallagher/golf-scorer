@@ -266,6 +266,9 @@ body {
 .nav-tab.active { color: var(--gold); border-bottom-color: var(--gold); background: rgba(201,168,76,0.06); }
 .nav-tab:disabled { opacity: 0.3; cursor: default; }
 
+/* ── Scorecard page wrapper ── */
+.card-page-wrap { max-width: 480px; margin: 0 auto; padding: 14px 14px 40px; }
+
 /* ── Scorecard table ── */
 .scorecard-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .sc-table { width: 100%; border-collapse: collapse; font-size: 10px; min-width: 360px; }
@@ -275,6 +278,16 @@ body {
 .sc-total { font-weight: 700; color: var(--gold); }
 .sc-par-row td { color: rgba(245,240,232,0.4); font-size: 9px; }
 .sc-idx-row td { color: rgba(245,240,232,0.25); font-size: 9px; }
+
+/* ── Landscape: stretch scorecard to full width ── */
+@media (orientation: landscape) and (max-height: 500px) {
+  .card-page-wrap { max-width: none; padding: 8px 16px 24px; }
+  .sc-table { font-size: 13px; min-width: 0; }
+  .sc-table th { padding: 8px 6px; font-size: 11px; }
+  .sc-table td { padding: 7px 5px; font-size: 13px; }
+  .sc-name { font-size: 13px !important; padding-left: 10px !important; }
+  .sc-par-row td, .sc-idx-row td { font-size: 11px; }
+}
 .progress-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 10px; height: 3px; margin-top: 8px; overflow: hidden; }
 .progress-bar { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--gold), var(--gold-light)); transition: width 0.4s ease; }
 

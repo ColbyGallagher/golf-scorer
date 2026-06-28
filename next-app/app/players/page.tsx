@@ -405,7 +405,7 @@ export default function PlayersPage() {
           {editing ? 'Done' : 'Edit Handicaps'}
         </button>
       </div>
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '14px 14px 40px' }}>
+      <div className="card-page-wrap">
         {PLAYERS.map(p => (
           <PlayerCard
             key={p.id}

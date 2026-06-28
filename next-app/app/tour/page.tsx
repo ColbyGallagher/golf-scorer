@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PLAYERS } from '../../store/gameStore';
-import { fetchTourEvents } from '../../lib/db';
+import { fetchTourEvents, syncRoundsFromCloud } from '../../lib/db';
 import type { HistoryRound } from '../../lib/db';
 import { seasonLeaderboard } from '../../lib/tour';
 import { EventResultsTable } from '../components/EventResultsTable';
@@ -220,16 +220,30 @@ export default function TourPage() {
 
   async function loadData(localRounds: HistoryRound[]) {
     setLoading(true);
-    const evts = await fetchTourEvents(CURRENT_SEASON);
+    const [evts, merged] = await Promise.all([
+      fetchTourEvents(CURRENT_SEASON),
+      syncRoundsFromCloud(localRounds),
+    ]);
     setEvents(evts);
-    setRounds(localRounds);
+    if (merged) {
+      localStorage.setItem('golf_history', JSON.stringify(merged.slice(0, 50)));
+      setRounds(merged);
+    }
     setLoading(false);
   }
 
   async function syncHandicap() {
     setCloudMsg('⏳ Syncing…');
-    const evts = await fetchTourEvents(CURRENT_SEASON);
+    const local = loadHistory();
+    const [evts, merged] = await Promise.all([
+      fetchTourEvents(CURRENT_SEASON),
+      syncRoundsFromCloud(local),
+    ]);
     setEvents(evts);
+    if (merged) {
+      localStorage.setItem('golf_history', JSON.stringify(merged.slice(0, 50)));
+      setRounds(merged);
+    }
     setCloudMsg('✅ Synced');
     setTimeout(() => setCloudMsg(''), 2500);
   }

@@ -54,7 +54,7 @@ export default function CardPage() {
   return (
     <>
       <GameNav />
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '14px 14px 40px' }}>
+      <div className="card-page-wrap">
         <div className="progress-bar-wrap">
           <div className="progress-bar" style={{ width: `${cnt / 18 * 100}%` }} />
         </div>

@@ -380,7 +380,7 @@ export default function CoursesPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '14px 14px 40px' }}>
+      <div className="card-page-wrap">
         {gpsStatus === 'error' && sort === 'distance' && (
           <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)', marginBottom: 10, textAlign: 'center' }}>
             ⚠️ Location unavailable — showing unranked order

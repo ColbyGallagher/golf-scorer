@@ -14,6 +14,7 @@ export function strokesOnHole(
 ): number {
   const hcp = Math.max(0, Math.floor(handicaps[playerId]) || 0);
   const si = indices[hole];
+  if (!si) return 0; // SI=0 means no index data from API — no strokes allocated
   let strokes = 0;
   if (si <= hcp)      strokes++;
   if (si <= hcp - 18) strokes++;
@@ -50,7 +51,7 @@ export function totalStableford(
   handicaps: Record<string, number>,
   indices: number[],
 ): number {
-  return scores[playerId].reduce(
+  return (scores[playerId] ?? []).reduce(
     (sum, strokes, hole) =>
       sum + (stablefordPoints(strokes, pars[hole], playerId, hole, handicaps, indices) ?? 0),
     0,
@@ -333,7 +334,7 @@ export function ptsLabel(pts: number | null): string {
 }
 
 export function grossScore(playerId: string, scores: Record<string, number[]>): number {
-  return scores[playerId].reduce((s, v) => s + v, 0);
+  return (scores[playerId] ?? []).reduce((s, v) => s + v, 0);
 }
 
 export function netScore(
