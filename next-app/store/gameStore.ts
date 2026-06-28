@@ -64,6 +64,7 @@ interface GameState {
   gameActive: boolean;
   setupStep: number;
   threePutts: PlayerThreePutts;
+  isTourRound: boolean;
 }
 
 interface GameActions {
@@ -88,6 +89,7 @@ interface GameActions {
   setCompWinner: (hole: number, data: Partial<CompWinner>) => void;
   setGameActive: (active: boolean) => void;
   setSetupStep: (step: number) => void;
+  setIsTourRound: (v: boolean) => void;
   resetGame: () => void;
 }
 
@@ -131,6 +133,7 @@ const defaultState: GameState = {
   gameActive: false,
   setupStep: 1,
   threePutts: initThreePutts(),
+  isTourRound: false,
 };
 
 export const useGameStore = create<GameState & GameActions>()(
@@ -198,6 +201,7 @@ export const useGameStore = create<GameState & GameActions>()(
 
   setGameActive: (active) => set({ gameActive: active }),
   setSetupStep: (step) => set({ setupStep: step }),
+  setIsTourRound: (v) => set({ isTourRound: v }),
 
   resetGame: () => set({
     ...defaultState,

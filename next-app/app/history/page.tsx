@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { stablefordPoints, calcSkins, calcWolf, calcNassau, calcBestBall, teamTotals, getPlayingHandicap } from '../../lib/scoring';
+import { stablefordPoints, calcWolf, calcBestBall, teamTotals, getPlayingHandicap } from '../../lib/scoring';
+import { netScorePoints, threePlusPoints } from '../../lib/tour';
 import type { HistoryRound } from '../../lib/db';
-import { saveRoundToCloud, syncRoundsFromCloud, deleteRoundFromCloud, saveTourEvent, addHandicapScore } from '../../lib/db';
+import { saveRoundToCloud, syncRoundsFromCloud, deleteRoundFromCloud, saveTourEvent, addHandicapScore, fetchTourEvents } from '../../lib/db';
 import type { PlayerId, TourEvent } from '../../lib/types';
 import { differential } from '../../lib/handicap';
+import { EventResultsTable } from '../components/EventResultsTable';
 
 function loadHistory(): HistoryRound[] {
   if (typeof window === 'undefined') return [];
@@ -24,11 +26,6 @@ function formatDate(d: string) {
   return `${months[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
 }
 
-function roundStableford(r: HistoryRound, pid: string): number {
-  return r.scores[pid]?.reduce((sum, s, h) =>
-    sum + (stablefordPoints(s, r.pars[h], pid, h, r.handicaps, r.indices) ?? 0), 0) ?? 0;
-}
-
 export default function HistoryPage() {
   const [rounds,   setRounds]   = useState<HistoryRound[]>([]);
   const [detail,   setDetail]   = useState<HistoryRound | null>(null);
@@ -36,6 +33,7 @@ export default function HistoryPage() {
   const [syncing,        setSyncing]        = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [tourModal, setTourModal] = useState<HistoryRound | null>(null);
+  const [eventByRoundId, setEventByRoundId] = useState<Record<number, TourEvent>>({});
 
   const gameActive      = useGameStore(s => s.gameActive);
   const scores          = useGameStore(s => s.scores);
@@ -52,10 +50,16 @@ export default function HistoryPage() {
   const wolfHoles       = useGameStore(s => s.wolfHoles);
   const selectedTee     = useGameStore(s => s.selectedTee);
   const threePutts      = useGameStore(s => s.threePutts);
+  const isTourRound     = useGameStore(s => s.isTourRound);
 
   useEffect(() => {
     setRounds(loadHistory());
     syncCloud();
+    fetchTourEvents().then(evts => {
+      const map: Record<number, TourEvent> = {};
+      for (const e of evts) if (e.roundId !== null) map[e.roundId] = e;
+      setEventByRoundId(map);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -85,6 +89,7 @@ export default function HistoryPage() {
       slopeRating,
       selectedTee,
       threePutts:     Object.fromEntries(PLAYERS.map(p => [p.id, [...(threePutts[p.id as PlayerId] ?? [])]])),
+      isTourRound,
     };
     hist.unshift(entry);
     const trimmed = hist.slice(0, 50);
@@ -151,7 +156,7 @@ export default function HistoryPage() {
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: 'var(--gold)', margin: 0, flex: 1 }}>History</h1>
         <Link href="/tour" style={{ fontSize: 12, color: 'var(--gold)', textDecoration: 'none', border: '1px solid rgba(201,168,76,0.35)', borderRadius: 6, padding: '4px 10px' }}>🏅 Tour</Link>
       </div>
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '14px 14px 40px' }}>
+      <div className="card-page-wrap">
         {gameActive && holesPlayed > 0 ? (
           <button className="save-round-btn" onClick={saveRound}>
             ☁️ Save round ({holesPlayed} holes)
@@ -189,6 +194,7 @@ export default function HistoryPage() {
             <RoundCard
               key={r.id}
               r={r}
+              event={eventByRoundId[r.id]}
               onOpen={() => setDetail(r)}
               confirmDeleteId={confirmDeleteId}
               setConfirmDeleteId={setConfirmDeleteId}
@@ -198,95 +204,43 @@ export default function HistoryPage() {
         )}
       </div>
 
-      {detail && <HistoryDetail round={detail} onClose={() => setDetail(null)} />}
+      {detail && <HistoryDetail round={detail} event={eventByRoundId[detail.id]} onClose={() => setDetail(null)} />}
       {tourModal && <TourEventModal round={tourModal} onClose={() => setTourModal(null)} />}
     </>
   );
 }
 
-function teamWinLabel(a: number, b: number) {
-  return a > b ? 'A ↑' : b > a ? 'B ↑' : '=';
-}
-function teamWinColor(a: number, b: number) {
-  return a > b ? 'var(--team-a)' : b > a ? 'var(--team-b)' : 'var(--gold)';
-}
-
 function RoundCard({
-  r, onOpen, confirmDeleteId, setConfirmDeleteId, onDelete,
+  r, event, onOpen, confirmDeleteId, setConfirmDeleteId, onDelete,
 }: {
   r: HistoryRound;
+  event?: TourEvent;
   onOpen: () => void;
   confirmDeleteId: number | null;
   setConfirmDeleteId: (id: number | null) => void;
   onDelete: (id: number) => void;
 }) {
-  const ag = r.activeGames || {};
-  const ta = (r.teamAssignments || {}) as Record<string, 'A' | 'B'>;
-
-  const teamAName = PLAYERS.filter(p => ta[p.id] === 'A').map(p => p.name).join(' & ') || 'Team A';
-  const teamBName = PLAYERS.filter(p => ta[p.id] === 'B').map(p => p.name).join(' & ') || 'Team B';
-
-  const stbl = PLAYERS.map(p => ({ p, pts: roundStableford(r, p.id) }));
-  const multTotals = ag.teamMultiplier
-    ? teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta)
-    : null;
-  const totA = multTotals?.totA ?? stbl.filter(x => ta[x.p.id] === 'A').reduce((s, x) => s + x.pts, 0);
-  const totB = multTotals?.totB ?? stbl.filter(x => ta[x.p.id] === 'B').reduce((s, x) => s + x.pts, 0);
-
-  const grossMap = Object.fromEntries(
-    PLAYERS.map(p => [p.id, r.scores[p.id]?.reduce((s, v) => s + (v > 0 ? v : 0), 0) ?? 0])
-  );
-  const netMap = Object.fromEntries(
-    PLAYERS.map(p => {
-      const g = grossMap[p.id];
-      if (!g) return [p.id, 0];
-      const ph = getPlayingHandicap(p.id, r.handicaps, r.courseRating ?? 71, r.slopeRating ?? 113, r.pars);
-      return [p.id, g - ph];
-    })
-  );
-
-  const skinMap: Record<string, number> = {};
-  if (ag.skins) {
-    for (const s of calcSkins(PLAYERS, r.scores, r.pars, r.handicaps, r.indices)) {
-      if (s.winner) skinMap[s.winner.id] = (skinMap[s.winner.id] || 0) + s.value;
-    }
-  }
-
-  const wolfMap: Record<string, number> = {};
-  if (ag.wolf && r.wolfOrder?.length) {
-    for (const wh of calcWolf(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, r.wolfOrder, r.wolfHoles || [], r.wolfOverrides ?? {})) {
-      for (const [pid, pts] of Object.entries(wh.pm)) {
-        wolfMap[pid] = (wolfMap[pid] || 0) + pts;
-      }
-    }
-  }
-
-  const nassau = ag.nassau
-    ? calcNassau(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta)
-    : null;
-
-  const bbNoSI = r.indices?.length === 18 && r.indices.every(i => i === 0);
-  const bestBall = ag.bestBall
-    ? calcBestBall(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta, bbNoSI)
-    : null;
-
-  const ctpCount: Record<string, number> = {};
-  const ldCount: Record<string, number>  = {};
-  for (let h = 0; h < 18; h++) {
-    const cw = r.compWinners?.[h];
-    if (cw?.ctp && cw.ctp !== 'none') ctpCount[cw.ctp] = (ctpCount[cw.ctp] || 0) + 1;
-    if (cw?.ld  && cw.ld  !== 'none') ldCount[cw.ld]   = (ldCount[cw.ld]   || 0) + 1;
-  }
-  const hasCtp = ag.ctp  && Object.keys(ctpCount).length > 0;
-  const hasLd  = ag.longDrive && Object.keys(ldCount).length > 0;
-
-  const hasTeam = ag.teamMultiplier || ag.bestBall || ag.nassau;
-
   return (
     <div className="history-round" onClick={onOpen}>
       <div className="history-round-header">
         <div>
-          <div className="history-round-date">{r.label}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+            <div className="history-round-date">{r.label}</div>
+            {(event || r.isTourRound) && (
+              <span style={{
+                fontSize: 9, fontWeight: 600, letterSpacing: 0.4, padding: '2px 5px', borderRadius: 3,
+                background: 'rgba(201,168,76,0.12)', color: 'var(--gold)',
+                border: '1px solid rgba(201,168,76,0.3)', flexShrink: 0,
+              }}>🏅 DE Tour</span>
+            )}
+            <span style={{
+              fontSize: 9, fontWeight: 600, letterSpacing: 0.4, padding: '2px 5px', borderRadius: 3,
+              background: event?.source === 'excel' ? 'rgba(201,168,76,0.12)' : 'rgba(78,186,122,0.15)',
+              color: event?.source === 'excel' ? 'rgba(201,168,76,0.7)' : 'var(--green-bright)',
+              border: event?.source === 'excel' ? '1px solid rgba(201,168,76,0.25)' : '1px solid rgba(78,186,122,0.3)',
+              flexShrink: 0,
+            }}>{event?.source === 'excel' ? '📊 Excel' : '📱 App'}</span>
+          </div>
           <div className="history-round-holes">{formatDate(r.date)} · {r.holesPlayed} holes</div>
         </div>
         {confirmDeleteId === r.id ? (
@@ -309,144 +263,227 @@ function RoundCard({
         )}
       </div>
 
-      <table className="history-games-table">
-        <thead>
-          <tr>
-            <th />
-            {PLAYERS.map(p => <th key={p.id} style={{ color: p.color }}>{p.name}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Stableford</td>
-            {stbl.map(({ p, pts }) => (
-              <td key={p.id} style={{ color: 'var(--gold)', fontWeight: 700 }}>{pts}</td>
-            ))}
-          </tr>
-          {ag.gross && (
-            <tr>
-              <td>Gross</td>
-              {PLAYERS.map(p => <td key={p.id}>{grossMap[p.id] || '—'}</td>)}
-            </tr>
-          )}
-          {ag.net && (
-            <tr>
-              <td>Net</td>
-              {PLAYERS.map(p => <td key={p.id}>{netMap[p.id] || '—'}</td>)}
-            </tr>
-          )}
-          {ag.skins && (
-            <tr>
-              <td>Skins</td>
-              {PLAYERS.map(p => <td key={p.id}>{skinMap[p.id] || 0}</td>)}
-            </tr>
-          )}
-          {ag.wolf && (
-            <tr>
-              <td>Wolf</td>
-              {PLAYERS.map(p => <td key={p.id}>{wolfMap[p.id] || 0}</td>)}
-            </tr>
-          )}
-          {hasCtp && (
-            <tr>
-              <td>📍 CTP</td>
-              {PLAYERS.map(p => <td key={p.id}>{ctpCount[p.id] || 0}</td>)}
-            </tr>
-          )}
-          {hasLd && (
-            <tr>
-              <td>💨 Long Drive</td>
-              {PLAYERS.map(p => <td key={p.id}>{ldCount[p.id] || 0}</td>)}
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      {hasTeam && (
-        <table className="history-games-table" style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 4 }}>
-          <thead>
-            <tr>
-              <th />
-              <th style={{ color: 'var(--team-a)' }}>{teamAName}</th>
-              <th style={{ color: 'var(--team-b)' }}>{teamBName}</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {ag.teamMultiplier && (
-              <tr>
-                <td>Team</td>
-                <td>{totA}pts</td>
-                <td>{totB}pts</td>
-                <td style={{ color: teamWinColor(totA, totB), textAlign: 'right' }}>{teamWinLabel(totA, totB)}</td>
-              </tr>
-            )}
-            {bestBall && (() => {
-              const isGross = bestBall.mode === 'gross';
-              const winA = isGross ? bestBall.totA < bestBall.totB : bestBall.totA > bestBall.totB;
-              const winB = isGross ? bestBall.totB < bestBall.totA : bestBall.totB > bestBall.totA;
-              const label = winA ? 'A ↑' : winB ? 'B ↑' : '=';
-              const color = winA ? 'var(--team-a)' : winB ? 'var(--team-b)' : 'var(--gold)';
-              const unit = isGross ? '' : 'pts';
-              return (
-                <tr>
-                  <td>Best Ball{isGross ? ' (gross)' : ''}</td>
-                  <td>{bestBall.totA}{unit}</td>
-                  <td>{bestBall.totB}{unit}</td>
-                  <td style={{ color, textAlign: 'right' }}>{label}</td>
-                </tr>
-              );
-            })()}
-            {nassau && <>
-              <tr>
-                <td>Front 9</td>
-                <td>{nassau.front.a}pts</td>
-                <td>{nassau.front.b}pts</td>
-                <td style={{ color: teamWinColor(nassau.front.a, nassau.front.b), textAlign: 'right' }}>{teamWinLabel(nassau.front.a, nassau.front.b)}</td>
-              </tr>
-              <tr>
-                <td>Back 9</td>
-                <td>{nassau.back.a}pts</td>
-                <td>{nassau.back.b}pts</td>
-                <td style={{ color: teamWinColor(nassau.back.a, nassau.back.b), textAlign: 'right' }}>{teamWinLabel(nassau.back.a, nassau.back.b)}</td>
-              </tr>
-              <tr>
-                <td>Full 18</td>
-                <td>{nassau.full.a}pts</td>
-                <td>{nassau.full.b}pts</td>
-                <td style={{ color: teamWinColor(nassau.full.a, nassau.full.b), textAlign: 'right' }}>{teamWinLabel(nassau.full.a, nassau.full.b)}</td>
-              </tr>
-            </>}
-          </tbody>
-        </table>
-      )}
-
+      {event ? <EventResultsTable event={event} round={r} /> : <RoundResultsTable r={r} />}
     </div>
   );
 }
 
-function HistoryDetail({ round: r, onClose }: { round: HistoryRound; onClose: () => void }) {
-  const front = Array.from({ length: 9 }, (_, i) => i);
-  const back  = Array.from({ length: 9 }, (_, i) => i + 9);
-  const ta    = r.teamAssignments || {};
-  const totA  = PLAYERS.filter(p => ta[p.id] === 'A').reduce((s, p) => s + roundStableford(r, p.id), 0);
-  const totB  = PLAYERS.filter(p => ta[p.id] === 'B').reduce((s, p) => s + roundStableford(r, p.id), 0);
-  const hdTeamAName = PLAYERS.filter(p => ta[p.id] === 'A').map(p => p.name).join(' & ') || 'Team A';
-  const hdTeamBName = PLAYERS.filter(p => ta[p.id] === 'B').map(p => p.name).join(' & ') || 'Team B';
-  const diff = totA - totB;
+// ─── Round Results Table (shared by RoundCard + HistoryDetail) ────────────────
 
-  function cell(pid: string, h: number) {
-    const s = r.scores[pid]?.[h];
-    if (!s) return { val: '—', color: 'rgba(245,240,232,0.15)' };
-    const pts = stablefordPoints(s, r.pars[h], pid, h, r.handicaps, r.indices);
-    const color = pts !== null && pts >= 4 ? 'var(--gold)' : pts !== null && pts >= 3 ? 'var(--green-bright)' : '';
-    return { val: String(s), color };
+function RoundResultsTable({ r }: { r: HistoryRound }) {
+  const ta = (r.teamAssignments || {}) as Record<string, 'A' | 'B'>;
+  const ag = r.activeGames || {};
+  const isWolf = !!(ag.wolf && r.wolfOrder?.length);
+
+  // Wolf totals
+  const wolfTotals: Record<string, number> = {};
+  if (isWolf) {
+    for (const hr of calcWolf(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, r.wolfOrder!, r.wolfHoles || [], r.wolfOverrides ?? {})) {
+      for (const [pid, v] of Object.entries(hr.pm)) wolfTotals[pid] = (wolfTotals[pid] ?? 0) + v;
+    }
+  }
+  const wolfWinners = new Set<string>();
+  if (isWolf) {
+    const ranked = [...PLAYERS].sort((a, b) => (wolfTotals[b.id] ?? 0) - (wolfTotals[a.id] ?? 0));
+    wolfWinners.add(ranked[0]?.id ?? '');
+    if (ranked[1]) wolfWinners.add(ranked[1].id);
   }
 
-  function sectionPts(pid: string, holes: number[]) {
-    return holes.reduce((sum, h) =>
-      sum + (stablefordPoints(r.scores[pid]?.[h] ?? 0, r.pars[h], pid, h, r.handicaps, r.indices) ?? 0), 0);
+  // Team winner + score
+  let teamWinner: 'A' | 'B' | null = null;
+  let teamScore: { A: number; B: number } | null = null;
+  let teamFmt = 'Stableford';
+  if (!isWolf) {
+    if (ag.teamMultiplier) {
+      const t = teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+      teamScore = { A: t.totA, B: t.totB };
+      teamWinner = t.totA > t.totB ? 'A' : t.totB > t.totA ? 'B' : null;
+      teamFmt = 'Multiplier';
+    } else if (ag.bestBall) {
+      const bbNoSI = r.indices?.length === 18 && r.indices.every(i => i === 0);
+      const bb = calcBestBall(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta, bbNoSI);
+      const isGross = bb.mode === 'gross';
+      teamScore = { A: bb.totA, B: bb.totB };
+      teamWinner = isGross
+        ? (bb.totA < bb.totB ? 'A' : bb.totB < bb.totA ? 'B' : null)
+        : (bb.totA > bb.totB ? 'A' : bb.totB > bb.totA ? 'B' : null);
+      teamFmt = 'Best Ball';
+    }
   }
+
+  const teamAPlayers = PLAYERS.filter(p => ta[p.id] === 'A');
+  const teamBPlayers = PLAYERS.filter(p => ta[p.id] === 'B');
+  const hasTeams = teamAPlayers.length > 0 && teamBPlayers.length > 0 && !isWolf;
+
+  // Per-player computed data
+  const playerData = PLAYERS.map(pl => {
+    const pid = pl.id;
+    const gross = r.scores[pid]?.reduce((s, v) => s + (v > 0 ? v : 0), 0) ?? 0;
+    const ph = getPlayingHandicap(pid, r.handicaps, r.courseRating ?? 71, r.slopeRating ?? 113, r.pars);
+    const net = gross > 0 ? gross - ph : 0;
+    const stbl = r.scores[pid]?.reduce((sum, s, h) =>
+      sum + (stablefordPoints(s, r.pars[h], pid, h, r.handicaps, r.indices) ?? 0), 0) ?? 0;
+    const threePuttCount = (r.threePutts?.[pid] ?? []).filter(Boolean).length;
+    const bracketPts = gross > 0 ? netScorePoints(net) : 0;
+    const threePlusCount = threePlusPoints(pid, r.scores, r.pars, r.handicaps, r.indices);
+    let ctpPts = 0, ldPts = 0;
+    for (let h = 0; h < 18; h++) {
+      const cw = r.compWinners?.[h];
+      if (cw?.ctp && cw.ctp !== 'none' && cw.ctp === pid) ctpPts += 5;
+      if (cw?.ld  && cw.ld  !== 'none' && cw.ld  === pid) ldPts  += 5;
+    }
+    const teamPts = isWolf
+      ? (wolfWinners.has(pid) ? 10 : 0)
+      : (hasTeams && teamWinner !== null && ta[pid] === teamWinner ? 10 : 0);
+    const total = bracketPts + teamPts + threePlusCount + ldPts + ctpPts;
+    return { pl, pid, gross, net, stbl, threePuttCount, bracketPts, threePlusCount, ctpPts, ldPts, teamPts, total };
+  });
+
+  // Stableford team fallback (teams without multiplier/bestBall)
+  if (!teamScore && hasTeams) {
+    const sum = (team: 'A' | 'B') =>
+      playerData.filter(pd => ta[pd.pid] === team).reduce((s, pd) => s + pd.stbl, 0);
+    teamScore = { A: sum('A'), B: sum('B') };
+  }
+
+  const thR: React.CSSProperties = { textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', paddingBottom: 5, fontWeight: 500, paddingLeft: 6 };
+  const mono: React.CSSProperties = { textAlign: 'right', fontFamily: "'DM Mono', monospace", fontSize: 12, paddingLeft: 6 };
+  const dividerCell: React.CSSProperties = { borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 8 };
+  const preDivider: React.CSSProperties = { paddingRight: 8 };
+  const scoringCols = isWolf ? 6 : 5;
+  const pointsCols = 6;
+  const totalCols = scoringCols + pointsCols;
+
+  function Dot({ pid, size = 18 }: { pid: string; size?: number }) {
+    const pl = PLAYERS.find(p => p.id === pid);
+    return (
+      <div style={{ width: size, height: size, borderRadius: '50%', background: pl?.color ?? '#888', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.5, fontWeight: 700, color: '#0d2818', flexShrink: 0 }}>
+        {pl?.name[0]}
+      </div>
+    );
+  }
+
+  function renderTeamHeader(team: 'A' | 'B') {
+    const isWinner = teamWinner === team;
+    const players = team === 'A' ? teamAPlayers : teamBPlayers;
+    const score = teamScore ? teamScore[team] : null;
+    return (
+      <tr key={`team-${team}`} style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <td colSpan={totalCols} style={{ paddingTop: 5, paddingBottom: 5 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            {players.map(p => <Dot key={p.id} pid={p.id} size={14} />)}
+            <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.35)', marginLeft: 2, textTransform: 'uppercase', letterSpacing: 0.4 }}>{teamFmt}</span>
+            {score !== null && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, color: isWinner ? 'var(--green-bright)' : 'rgba(245,240,232,0.5)' }}>{score}</span>}
+            {isWinner && <span style={{ fontSize: 10, color: 'var(--green-bright)', marginLeft: 2 }}>✓ Win</span>}
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  function renderPlayerRow(pd: typeof playerData[0]) {
+    const { pl, pid, gross, net, stbl, threePuttCount, bracketPts, threePlusCount, ctpPts, ldPts, teamPts, total } = pd;
+    return (
+      <tr key={pid} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <td style={{ paddingTop: 7, paddingBottom: 7 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Dot pid={pid} size={18} />
+            <span style={{ fontSize: 12, color: pl.color }}>{pl.name}</span>
+            <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.35)' }}>{r.handicaps[pid] ?? 0}</span>
+          </div>
+        </td>
+        <td style={mono}>{gross > 0 ? gross : '—'}</td>
+        <td style={mono}>{net > 0 ? net : '—'}</td>
+        <td style={mono}>{gross > 0 ? stbl : '—'}</td>
+        {isWolf && <td style={{ ...mono, color: 'var(--cream)' }}>{wolfTotals[pid] ?? 0}</td>}
+        <td style={{ ...mono, ...preDivider, color: threePuttCount > 0 ? '#e88' : 'rgba(245,240,232,0.3)' }}>{threePuttCount > 0 ? threePuttCount : '—'}</td>
+        <td style={{ ...mono, ...dividerCell, color: 'var(--cream)' }}>{bracketPts > 0 ? bracketPts : '—'}</td>
+        <td style={{ ...mono, color: teamPts > 0 ? 'var(--green-bright)' : 'rgba(245,240,232,0.3)' }}>{teamPts > 0 ? teamPts : '—'}</td>
+        <td style={{ ...mono, color: threePlusCount > 0 ? 'var(--cream)' : 'rgba(245,240,232,0.3)' }}>{threePlusCount > 0 ? threePlusCount : '—'}</td>
+        <td style={{ ...mono, color: ldPts > 0 ? 'var(--green-bright)' : 'rgba(245,240,232,0.3)' }}>{ldPts > 0 ? ldPts : '—'}</td>
+        <td style={{ ...mono, color: ctpPts > 0 ? 'var(--green-bright)' : 'rgba(245,240,232,0.3)' }}>{ctpPts > 0 ? ctpPts : '—'}</td>
+        <td style={{ ...mono, fontSize: 13, fontWeight: 700, color: 'var(--gold)' }}>{total > 0 ? total : '—'}</td>
+      </tr>
+    );
+  }
+
+  return (
+    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
+        <thead>
+          <tr>
+            <th colSpan={scoringCols} style={{ textAlign: 'left', fontSize: 9, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', paddingBottom: 3 }}>Scoring</th>
+            <th colSpan={pointsCols} style={{ textAlign: 'left', fontSize: 9, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(245,240,232,0.3)', paddingBottom: 3, paddingLeft: 8, borderLeft: '1px solid rgba(255,255,255,0.1)' }}>Points</th>
+          </tr>
+          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <th style={{ textAlign: 'left', fontSize: 10, color: 'rgba(245,240,232,0.35)', paddingBottom: 5, fontWeight: 500 }}>Player</th>
+            <th style={thR}>Gross</th>
+            <th style={thR}>Net</th>
+            <th style={thR}>Stbl</th>
+            {isWolf && <th style={thR}>Wolf</th>}
+            <th style={{ ...thR, ...preDivider }}>3P</th>
+            <th style={{ ...thR, ...dividerCell }}>Pts</th>
+            <th style={thR}>Team</th>
+            <th style={thR}>3+</th>
+            <th style={thR}>LD</th>
+            <th style={thR}>CTP</th>
+            <th style={{ ...thR, color: 'rgba(201,168,76,0.6)' }}>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {isWolf ? (
+            playerData.map(pd => renderPlayerRow(pd))
+          ) : hasTeams ? (
+            <>
+              {renderTeamHeader('A')}
+              {playerData.filter(pd => ta[pd.pid] === 'A').map(pd => renderPlayerRow(pd))}
+              {renderTeamHeader('B')}
+              {playerData.filter(pd => ta[pd.pid] === 'B').map(pd => renderPlayerRow(pd))}
+            </>
+          ) : (
+            playerData.map(pd => renderPlayerRow(pd))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function HistoryDetail({ round: r, event, onClose }: { round: HistoryRound; event?: TourEvent; onClose: () => void }) {
+  const ta = (r.teamAssignments || {}) as Record<string, 'A' | 'B'>;
+  const ag = r.activeGames || {};
+  const isWolf = event
+    ? (!event.teamWinner && r.activeGames?.wolf === true)
+    : !!(ag.wolf && r.wolfOrder?.length);
+
+  // Team winner (for banner) — prefer linked tour event so it matches the Tour page
+  let teamWinner: 'A' | 'B' | null = null;
+  if (event) {
+    teamWinner = event.teamWinner;
+  } else if (!isWolf) {
+    if (ag.teamMultiplier) {
+      const t = teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+      teamWinner = t.totA > t.totB ? 'A' : t.totB > t.totA ? 'B' : null;
+    } else if (ag.bestBall) {
+      const bbNoSI = r.indices?.length === 18 && r.indices.every(i => i === 0);
+      const bb = calcBestBall(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta, bbNoSI);
+      const isGross = bb.mode === 'gross';
+      teamWinner = isGross
+        ? (bb.totA < bb.totB ? 'A' : bb.totB < bb.totA ? 'B' : null)
+        : (bb.totA > bb.totB ? 'A' : bb.totB > bb.totA ? 'B' : null);
+    }
+  }
+
+  const teamAPlayers = event
+    ? PLAYERS.filter(p => event.teamA.includes(p.id as PlayerId))
+    : PLAYERS.filter(p => ta[p.id] === 'A');
+  const teamBPlayers = event
+    ? PLAYERS.filter(p => event.teamB.includes(p.id as PlayerId))
+    : PLAYERS.filter(p => ta[p.id] === 'B');
+  const hasTeams = teamAPlayers.length > 0 && teamBPlayers.length > 0 && !isWolf;
+
+  const hdTeamAName = teamAPlayers.map(p => p.name).join(' & ') || 'Team A';
+  const hdTeamBName = teamBPlayers.map(p => p.name).join(' & ') || 'Team B';
 
   return (
     <div className="history-detail-overlay">
@@ -458,21 +495,19 @@ function HistoryDetail({ round: r, onClose }: { round: HistoryRound; onClose: ()
         </div>
       </div>
       <div style={{ padding: 14 }}>
-        {diff > 0 && (
+        {hasTeams && teamWinner === 'A' && (
           <div className="result-banner" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}>
             <div className="result-label">Winner</div>
             <div className="result-text" style={{ color: 'var(--team-a)' }}>{hdTeamAName}</div>
-            <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)', marginTop: 3 }}>{diff} pts ahead</div>
           </div>
         )}
-        {diff < 0 && (
+        {hasTeams && teamWinner === 'B' && (
           <div className="result-banner" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)' }}>
             <div className="result-label">Winner</div>
             <div className="result-text" style={{ color: 'var(--team-b)' }}>{hdTeamBName}</div>
-            <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)', marginTop: 3 }}>{Math.abs(diff)} pts ahead</div>
           </div>
         )}
-        {diff === 0 && (
+        {hasTeams && teamWinner === null && (
           <div className="result-banner" style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
             <div className="result-label">Result</div>
             <div className="result-text" style={{ color: 'var(--gold)' }}>All Square</div>
@@ -480,46 +515,7 @@ function HistoryDetail({ round: r, onClose }: { round: HistoryRound; onClose: ()
         )}
 
         <div className="card">
-          <div className="scorecard-wrap">
-            <table className="sc-table">
-              <thead>
-                <tr>
-                  <th className="sc-name">Player</th>
-                  {front.map(h => <th key={h}>{h + 1}</th>)}
-                  <th>OUT</th>
-                  {back.map(h => <th key={h}>{h + 1}</th>)}
-                  <th>IN</th>
-                  <th>TOT</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="sc-par-row">
-                  <td className="sc-name" style={{ color: 'rgba(245,240,232,0.35)' }}>Par</td>
-                  {front.map(h => <td key={h}>{r.pars[h]}</td>)}
-                  <td>{front.reduce((s, h) => s + r.pars[h], 0)}</td>
-                  {back.map(h => <td key={h}>{r.pars[h]}</td>)}
-                  <td>{back.reduce((s, h) => s + r.pars[h], 0)}</td>
-                  <td>{r.pars.reduce((a, b) => a + b, 0)}</td>
-                </tr>
-                {PLAYERS.map(p => {
-                  const c = cell.bind(null, p.id);
-                  return (
-                    <tr key={p.id}>
-                      <td className="sc-name">
-                        <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: p.color, marginRight: 4, verticalAlign: 'middle' }} />
-                        {p.name}
-                      </td>
-                      {front.map(h => { const x = c(h); return <td key={h} style={{ color: x.color }}>{x.val}</td>; })}
-                      <td className="sc-total">{sectionPts(p.id, front)}</td>
-                      {back.map(h => { const x = c(h); return <td key={h} style={{ color: x.color }}>{x.val}</td>; })}
-                      <td className="sc-total">{sectionPts(p.id, back)}</td>
-                      <td className="sc-total" style={{ fontSize: 11 }}>{roundStableford(r, p.id)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {event ? <EventResultsTable event={event} round={r} /> : <RoundResultsTable r={r} />}
         </div>
 
         <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.3)', textAlign: 'center', marginTop: 8 }}>

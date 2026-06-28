@@ -190,11 +190,13 @@ function InfoModal({ infoKey, onClose }: { infoKey: string; onClose: () => void 
 }
 
 export default function Step2GameFormat({ onBack, onNext }: Props) {
-  const activeGames  = useGameStore(s => s.activeGames);
-  const wolfOrder    = useGameStore(s => s.wolfOrder);
-  const indices      = useGameStore(s => s.indices);
-  const setActiveGames = useGameStore(s => s.setActiveGames);
-  const setWolfOrder   = useGameStore(s => s.setWolfOrder);
+  const activeGames    = useGameStore(s => s.activeGames);
+  const wolfOrder      = useGameStore(s => s.wolfOrder);
+  const indices        = useGameStore(s => s.indices);
+  const isTourRound    = useGameStore(s => s.isTourRound);
+  const setActiveGames  = useGameStore(s => s.setActiveGames);
+  const setWolfOrder    = useGameStore(s => s.setWolfOrder);
+  const setIsTourRound  = useGameStore(s => s.setIsTourRound);
 
   const [infoKey, setInfoKey] = useState<string | null>(null);
 
@@ -231,6 +233,27 @@ export default function Step2GameFormat({ onBack, onNext }: Props) {
 
   return (
     <div>
+      <div
+        onClick={() => setIsTourRound(!isTourRound)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '11px 13px', borderRadius: 10, cursor: 'pointer',
+          userSelect: 'none', marginBottom: 10,
+          background: isTourRound ? 'rgba(201,168,76,0.08)' : 'rgba(245,240,232,0.02)',
+          border: `1px solid ${isTourRound ? 'rgba(201,168,76,0.35)' : 'rgba(245,240,232,0.07)'}`,
+          transition: 'background 0.15s, border 0.15s',
+        }}
+      >
+        <span style={{ fontSize: 18, opacity: isTourRound ? 1 : 0.35 }}>🏅</span>
+        <div style={{ opacity: isTourRound ? 1 : 0.45, flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: isTourRound ? 'var(--gold)' : 'var(--cream)' }}>DE World Tour</div>
+          <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)', marginTop: 1 }}>Mark as a season tour event</div>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: isTourRound ? 'var(--gold)' : 'rgba(245,240,232,0.18)' }}>
+          {isTourRound ? 'ON' : 'OFF'}
+        </span>
+      </div>
+
       <div className="card">
         <div className="card-title">🎮 Game Format</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

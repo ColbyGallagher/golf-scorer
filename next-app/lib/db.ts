@@ -32,6 +32,7 @@ export interface HistoryRound {
   slopeRating: number;
   selectedTee: string;
   threePutts: Record<string, boolean[]>;
+  isTourRound?: boolean;
 }
 
 function entryToRow(entry: HistoryRound) {
