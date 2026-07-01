@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { stablefordPoints, calcWolf, calcBestBall, teamTotals, getPlayingHandicap } from '../../lib/scoring';
+import { stablefordPoints, calcWolf, calcBestBall, calcAggregate, teamTotals, getPlayingHandicap } from '../../lib/scoring';
 import { netScorePoints, threePlusPoints } from '../../lib/tour';
 import type { HistoryRound } from '../../lib/db';
 import { saveRoundToCloud, syncRoundsFromCloud, deleteRoundFromCloud, saveTourEvent, addHandicapScore, fetchTourEvents } from '../../lib/db';
@@ -310,6 +310,11 @@ function RoundResultsTable({ r }: { r: HistoryRound }) {
         ? (bb.totA < bb.totB ? 'A' : bb.totB < bb.totA ? 'B' : null)
         : (bb.totA > bb.totB ? 'A' : bb.totB > bb.totA ? 'B' : null);
       teamFmt = 'Best Ball';
+    } else if (ag.aggregate) {
+      const agg = calcAggregate(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+      teamScore = { A: agg.totA, B: agg.totB };
+      teamWinner = agg.totA > agg.totB ? 'A' : agg.totB > agg.totA ? 'B' : null;
+      teamFmt = 'Aggregate';
     }
   }
 
@@ -341,7 +346,7 @@ function RoundResultsTable({ r }: { r: HistoryRound }) {
     return { pl, pid, gross, net, stbl, threePuttCount, bracketPts, threePlusCount, ctpPts, ldPts, teamPts, total };
   });
 
-  // Stableford team fallback (teams without multiplier/bestBall)
+  // Stableford team fallback (teams without multiplier/bestBall/aggregate)
   if (!teamScore && hasTeams) {
     const sum = (team: 'A' | 'B') =>
       playerData.filter(pd => ta[pd.pid] === team).reduce((s, pd) => s + pd.stbl, 0);
@@ -473,6 +478,9 @@ function HistoryDetail({ round: r, event, onClose }: { round: HistoryRound; even
       teamWinner = isGross
         ? (bb.totA < bb.totB ? 'A' : bb.totB < bb.totA ? 'B' : null)
         : (bb.totA > bb.totB ? 'A' : bb.totB > bb.totA ? 'B' : null);
+    } else if (ag.aggregate) {
+      const agg = calcAggregate(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+      teamWinner = agg.totA > agg.totB ? 'A' : agg.totB > agg.totA ? 'B' : null;
     }
   }
 

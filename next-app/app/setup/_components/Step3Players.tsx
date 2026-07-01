@@ -25,7 +25,7 @@ export default function Step3Players({ onBack }: Props) {
   const setTeamAssignment      = useGameStore(s => s.setTeamAssignment);
   const setGameActive          = useGameStore(s => s.setGameActive);
 
-  const showTeams = activeGames.teamMultiplier || activeGames.nassau;
+  const showTeams = activeGames.teamMultiplier || activeGames.nassau || activeGames.bestBall || activeGames.aggregate;
 
   function startGame() {
     setGameActive(true);
@@ -205,7 +205,10 @@ export default function Step3Players({ onBack }: Props) {
           })}
 
           <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(245,240,232,0.4)' }}>
-            Multiplier game: best Stableford per team × each other each hole.
+            {activeGames.teamMultiplier && 'Multiplier: each team\'s Stableford scores × each other per hole.'}
+            {activeGames.bestBall && !activeGames.teamMultiplier && 'Best Ball: better Stableford score per hole counts for the team.'}
+            {activeGames.aggregate && !activeGames.teamMultiplier && !activeGames.bestBall && 'Aggregate: both players\' Stableford scores are added together per hole.'}
+            {!activeGames.teamMultiplier && !activeGames.bestBall && !activeGames.aggregate && 'Nassau: team Stableford totals compared front 9, back 9, and overall.'}
           </div>
         </div>
       )}

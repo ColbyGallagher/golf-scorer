@@ -147,6 +147,36 @@ export function calcBestBall(
   return { totA, totB, mode: useGross ? 'gross' : 'stableford' };
 }
 
+// ─── Aggregate ───────────────────────────────────────────────────────────────
+
+export interface AggregateResult {
+  totA: number;
+  totB: number;
+}
+
+export function calcAggregate(
+  players: Player[],
+  scores: Record<string, number[]>,
+  pars: number[],
+  handicaps: Record<string, number>,
+  indices: number[],
+  teamAssignments: Record<string, 'A' | 'B'>,
+): AggregateResult {
+  let totA = 0, totB = 0;
+  for (let h = 0; h < 18; h++) {
+    for (const team of ['A', 'B'] as const) {
+      const teamPlayers = players.filter(p => teamAssignments[p.id] === team);
+      const played = teamPlayers.filter(p => scores[p.id][h] > 0);
+      if (!played.length) continue;
+      const sum = played.reduce((s, p) =>
+        s + (stablefordPoints(scores[p.id][h], pars[h], p.id, h, handicaps, indices) ?? 0), 0);
+      if (team === 'A') totA += sum;
+      else totB += sum;
+    }
+  }
+  return { totA, totB };
+}
+
 // ─── Wolf ────────────────────────────────────────────────────────────────────
 
 export function getWolfId(hole: number, wolfOrder: string[], overrides: Record<number, string> = {}): string | null {
