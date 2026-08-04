@@ -49,6 +49,7 @@ function fmtFormat(fmt: string) {
   if (fmt === 'multiplier') return 'Multiplier';
   if (fmt === 'worstBall') return 'Worst Ball';
   if (fmt === 'bestBall') return 'Best Ball';
+  if (fmt === 'aggregate') return 'Aggregate';
   return fmt;
 }
 
@@ -77,6 +78,8 @@ function LeaderboardCard({ entries }: { entries: SeasonEntry[] }) {
               <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 6, paddingLeft: 8 }}>Net</th>
               <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 6, paddingLeft: 8 }}>3+</th>
               <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 6, paddingLeft: 8 }}>Team</th>
+              <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 6, paddingLeft: 8 }}>CTP</th>
+              <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 6, paddingLeft: 8 }}>LD</th>
               <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 6, paddingLeft: 8 }}>Bns</th>
               <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 6, paddingLeft: 8 }}>3P</th>
               <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 6, paddingLeft: 8 }}>💩</th>
@@ -98,6 +101,8 @@ function LeaderboardCard({ entries }: { entries: SeasonEntry[] }) {
                   <td style={{ ...colStyle(e.net), paddingLeft: 8 }}>{e.net}</td>
                   <td style={{ ...colStyle(e.threePlus), paddingLeft: 8 }}>{e.threePlus}</td>
                   <td style={{ ...colStyle(e.team), paddingLeft: 8 }}>{e.team}</td>
+                  <td style={{ ...colStyle(e.par3), paddingLeft: 8 }}>{e.par3 > 0 ? e.par3 : '—'}</td>
+                  <td style={{ ...colStyle(e.par5), paddingLeft: 8 }}>{e.par5 > 0 ? e.par5 : '—'}</td>
                   <td style={{ ...colStyle(e.behind), paddingLeft: 8, color: e.behind === 0 ? 'var(--green-bright)' : 'rgba(245,240,232,0.4)' }}>
                     {e.behind === 0 ? '—' : `-${e.behind}`}
                   </td>
@@ -112,7 +117,9 @@ function LeaderboardCard({ entries }: { entries: SeasonEntry[] }) {
       <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <LegendChip>Net = net score bracket</LegendChip>
         <LegendChip>3+ = stableford 3+ pt holes</LegendChip>
-        <LegendChip>Bns = bonus (CTP/LD)</LegendChip>
+        <LegendChip>CTP = closest-to-pin points</LegendChip>
+        <LegendChip>LD = long-drive points</LegendChip>
+        <LegendChip>Bns = pts behind leader</LegendChip>
         <LegendChip>3P = 3-putts</LegendChip>
       </div>
     </div>
@@ -122,6 +129,43 @@ function LeaderboardCard({ entries }: { entries: SeasonEntry[] }) {
 function LegendChip({ children }: { children: React.ReactNode }) {
   return (
     <span style={{ fontSize: 9, color: 'rgba(245,240,232,0.3)', letterSpacing: 0.3 }}>{children}</span>
+  );
+}
+
+// ─── Poop Trophy Card ─────────────────────────────────────────────────────────
+
+function PoopTrophyCard({ entries }: { entries: SeasonEntry[] }) {
+  const ranked = [...entries].sort((a, b) => b.poops - a.poops);
+
+  return (
+    <div className="card">
+      <div className="card-title">💩 Poop Trophy Leaderboard</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {ranked.map((e, i) => {
+          const pl = playerById(e.playerId);
+          return (
+            <div key={e.playerId} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '6px 0',
+              borderBottom: i < ranked.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+            }}>
+              <span style={{ fontSize: 12, color: 'rgba(245,240,232,0.35)', minWidth: 16 }}>{i + 1}</span>
+              <PlayerDot pid={e.playerId} size={24} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: pl?.color, flex: 1 }}>{pl?.name}</span>
+              <span style={{
+                fontFamily: "'DM Mono', monospace", fontSize: 14, fontWeight: 700,
+                color: e.poops > 0 ? 'var(--gold)' : 'rgba(245,240,232,0.3)',
+              }}>
+                {e.poops > 0 ? e.poops : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <LegendChip>💩 = times awarded the poop trophy</LegendChip>
+      </div>
+    </div>
   );
 }
 
@@ -297,6 +341,7 @@ export default function TourPage() {
         ) : (
           <>
             {leaderboard.length > 0 && <LeaderboardCard entries={leaderboard} />}
+            {leaderboard.length > 0 && <PoopTrophyCard entries={leaderboard} />}
             <EventResultsCard events={events} roundsByEventId={roundsByEventId} />
           </>
         )}

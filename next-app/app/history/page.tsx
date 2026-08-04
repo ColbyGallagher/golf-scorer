@@ -807,17 +807,72 @@ function compTallyText(round: HistoryRound, field: 'ctp' | 'ld'): string {
   return parts.join(' · ') + (tied ? ' — tied, no points' : '');
 }
 
+// Derives team split, format, and winner straight from the played round —
+// same math as RoundResultsTable — so the tour modal doesn't ask for data
+// that's already sitting on the round.
+function computeTeamResult(r: HistoryRound): {
+  isWolf: boolean;
+  teamA: PlayerId[];
+  teamB: PlayerId[];
+  hasTeams: boolean;
+  teamFormat: 'multiplier' | 'bestBall' | 'aggregate';
+  teamWinner: 'A' | 'B' | null;
+} {
+  const ta = (r.teamAssignments || {}) as Record<string, 'A' | 'B'>;
+  const ag = r.activeGames || {};
+  const isWolf = !!(ag.wolf && r.wolfOrder?.length);
+  const teamAIds = PLAYERS.filter(p => ta[p.id] === 'A').map(p => p.id as PlayerId);
+  const teamBIds = PLAYERS.filter(p => ta[p.id] === 'B').map(p => p.id as PlayerId);
+  const hasTeams = teamAIds.length > 0 && teamBIds.length > 0 && !isWolf;
+
+  let teamFormat: 'multiplier' | 'bestBall' | 'aggregate' = 'multiplier';
+  let teamWinner: 'A' | 'B' | null = null;
+
+  if (hasTeams) {
+    if (ag.bestBall) {
+      teamFormat = 'bestBall';
+      const bbNoSI = r.indices?.length === 18 && r.indices.every(i => i === 0);
+      const bb = calcBestBall(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta, bbNoSI);
+      teamWinner = bb.mode === 'gross'
+        ? (bb.totA < bb.totB ? 'A' : bb.totB < bb.totA ? 'B' : null)
+        : (bb.totA > bb.totB ? 'A' : bb.totB > bb.totA ? 'B' : null);
+    } else if (ag.aggregate) {
+      teamFormat = 'aggregate';
+      const agg = calcAggregate(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+      teamWinner = agg.totA > agg.totB ? 'A' : agg.totB > agg.totA ? 'B' : null;
+    } else if (ag.teamMultiplier) {
+      teamFormat = 'multiplier';
+      const t = teamTotals(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+      teamWinner = t.totA > t.totB ? 'A' : t.totB > t.totA ? 'B' : null;
+    } else {
+      // No team game flag set — fall back to summed Stableford per team.
+      teamFormat = 'multiplier';
+      const stbl = (pid: string) => (r.scores[pid] ?? []).reduce((sum, s, h) =>
+        sum + (stablefordPoints(s, r.pars[h], pid, h, r.handicaps, r.indices) ?? 0), 0);
+      const sumA = teamAIds.reduce((s, pid) => s + stbl(pid), 0);
+      const sumB = teamBIds.reduce((s, pid) => s + stbl(pid), 0);
+      teamWinner = sumA > sumB ? 'A' : sumB > sumA ? 'B' : null;
+    }
+  }
+
+  return { isWolf, teamA: teamAIds, teamB: teamBIds, hasTeams, teamFormat, teamWinner };
+}
+
 function TourEventModal({ round, onClose }: { round: HistoryRound; onClose: () => void }) {
   const PLAYER_IDS = PLAYERS.map(p => p.id as PlayerId);
-  const [teamA, setTeamA] = useState<PlayerId[]>([PLAYER_IDS[0], PLAYER_IDS[1]]);
-  const [teamFormat, setTeamFormat] = useState<'multiplier' | 'worstBall' | 'bestBall'>('multiplier');
-  const [teamWinner, setTeamWinner] = useState<'A' | 'B' | null>(null);
+  const teamResult = computeTeamResult(round);
+  const [teamA, setTeamA] = useState<PlayerId[]>(
+    teamResult.hasTeams ? teamResult.teamA : [PLAYER_IDS[0], PLAYER_IDS[1]],
+  );
+  const [teamFormat, setTeamFormat] = useState<'multiplier' | 'worstBall' | 'bestBall' | 'aggregate'>(teamResult.teamFormat);
+  const [teamWinner, setTeamWinner] = useState<'A' | 'B' | null>(teamResult.teamWinner);
   const [ctpWinner, setCtpWinner] = useState<PlayerId | null>(() => tallyCompWinner(round, 'ctp'));
   const [ldWinner, setLdWinner] = useState<PlayerId | null>(() => tallyCompWinner(round, 'ld'));
   const [poopWinner, setPoopWinner] = useState<PlayerId | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
+  const isWolf = teamResult.isWolf;
   const teamB = PLAYER_IDS.filter(p => !teamA.includes(p));
 
   function toggleTeamA(pid: PlayerId) {
@@ -933,49 +988,57 @@ function TourEventModal({ round, onClose }: { round: HistoryRound; onClose: () =
           {round.courseName} · {new Date(round.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
         </div>
 
-        <div style={row}>
-          <span style={label}>Team A players</span>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {PLAYERS.map(pl => (
-              <button
-                key={pl.id}
-                style={teamA.includes(pl.id as PlayerId)
-                  ? { ...chipActive, borderColor: pl.color, color: pl.color }
-                  : chipBase}
-                onClick={() => toggleTeamA(pl.id as PlayerId)}
-              >
-                {pl.name}
-              </button>
-            ))}
+        {isWolf ? (
+          <div style={{ ...row, fontSize: 11, color: 'rgba(245,240,232,0.4)' }}>
+            🐺 Wolf round — team pts auto-scored from wolf game points, no team selection needed.
           </div>
-          {teamB.length > 0 && (
-            <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.3)', marginTop: 5 }}>
-              Team B: {teamB.map(p => PLAYERS.find(pl => pl.id === p)?.name).join(', ')}
+        ) : (
+          <>
+            <div style={row}>
+              <span style={label}>Team A players</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {PLAYERS.map(pl => (
+                  <button
+                    key={pl.id}
+                    style={teamA.includes(pl.id as PlayerId)
+                      ? { ...chipActive, borderColor: pl.color, color: pl.color }
+                      : chipBase}
+                    onClick={() => toggleTeamA(pl.id as PlayerId)}
+                  >
+                    {pl.name}
+                  </button>
+                ))}
+              </div>
+              {teamB.length > 0 && (
+                <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.3)', marginTop: 5 }}>
+                  Team B: {teamB.map(p => PLAYERS.find(pl => pl.id === p)?.name).join(', ')}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <div style={row}>
-          <span style={label}>Team format</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {(['multiplier', 'worstBall', 'bestBall'] as const).map(f => (
-              <button key={f} style={teamFormat === f ? chipActive : chipBase} onClick={() => setTeamFormat(f)}>
-                {f === 'multiplier' ? 'Multiplier' : f === 'worstBall' ? 'Worst Ball' : 'Best Ball'}
-              </button>
-            ))}
-          </div>
-        </div>
+            <div style={row}>
+              <span style={label}>Team format</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {(['multiplier', 'bestBall', 'aggregate', 'worstBall'] as const).map(f => (
+                  <button key={f} style={teamFormat === f ? chipActive : chipBase} onClick={() => setTeamFormat(f)}>
+                    {f === 'multiplier' ? 'Multiplier' : f === 'worstBall' ? 'Worst Ball' : f === 'bestBall' ? 'Best Ball' : 'Aggregate'}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        <div style={row}>
-          <span style={label}>Team winner</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {(['A', 'B', null] as const).map(v => (
-              <button key={String(v)} style={teamWinner === v ? chipActive : chipBase} onClick={() => setTeamWinner(v)}>
-                {v === null ? 'Draw' : `Team ${v}`}
-              </button>
-            ))}
-          </div>
-        </div>
+            <div style={row}>
+              <span style={label}>Team winner</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['A', 'B', null] as const).map(v => (
+                  <button key={String(v)} style={teamWinner === v ? chipActive : chipBase} onClick={() => setTeamWinner(v)}>
+                    {v === null ? 'Draw' : `Team ${v}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         <div style={row}>
           <span style={label}>📍 CTP winner</span>

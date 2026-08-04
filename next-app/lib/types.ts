@@ -50,7 +50,7 @@ export interface TourEvent {
   par: number;
   teamA: PlayerId[];
   teamB: PlayerId[];
-  teamFormat: 'multiplier' | 'worstBall' | 'bestBall';
+  teamFormat: 'multiplier' | 'worstBall' | 'bestBall' | 'aggregate';
   teamWinner: 'A' | 'B' | null;
   ctpWinner: PlayerId | null;
   ldWinner: PlayerId | null;

@@ -3,7 +3,7 @@
 import React from 'react';
 import { PLAYERS } from '../../store/gameStore';
 import { eventPoints } from '../../lib/tour';
-import { teamTotals, calcBestBall, stablefordPoints, calcWolf } from '../../lib/scoring';
+import { teamTotals, calcBestBall, calcAggregate, stablefordPoints, calcWolf } from '../../lib/scoring';
 import type { PlayerId, TourEvent } from '../../lib/types';
 import type { HistoryRound } from '../../lib/db';
 
@@ -28,6 +28,7 @@ function fmtFormat(fmt: string) {
   if (fmt === 'multiplier') return 'Multiplier';
   if (fmt === 'worstBall') return 'Worst Ball';
   if (fmt === 'bestBall') return 'Best Ball';
+  if (fmt === 'aggregate') return 'Aggregate';
   return fmt;
 }
 
@@ -43,6 +44,10 @@ function calcTeamScores(event: TourEvent, round: HistoryRound): { A: number; B: 
   }
   if (event.teamFormat === 'bestBall') {
     const t = calcBestBall(PLAYERS, round.scores, round.pars, hcps, round.indices, ta);
+    return { A: t.totA, B: t.totB };
+  }
+  if (event.teamFormat === 'aggregate') {
+    const t = calcAggregate(PLAYERS, round.scores, round.pars, hcps, round.indices, ta);
     return { A: t.totA, B: t.totB };
   }
   // worstBall — min stableford per team per hole
