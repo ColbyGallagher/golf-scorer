@@ -111,13 +111,12 @@ export async function syncRoundsFromCloud(local: HistoryRound[]): Promise<Histor
       .select('*')
       .order('id', { ascending: false });
     if (error || !data) return null;
-    const localIds = new Set(local.map(r => r.id));
-    const merged = [...local];
+    const byId = new Map(local.map(r => [r.id, r]));
     for (const row of data) {
       const entry = rowToEntry(row);
-      if (!localIds.has(entry.id)) merged.push(entry);
+      byId.set(entry.id, entry);
     }
-    merged.sort((a, b) => b.id - a.id);
+    const merged = [...byId.values()].sort((a, b) => b.id - a.id);
     return merged;
   } catch {
     return null;
