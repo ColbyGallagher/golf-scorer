@@ -194,6 +194,8 @@ function HandicapHistorySection({ scores }: { scores: HandicapScore[] }) {
               <tr style={{ borderBottom: '1px solid rgba(201,168,76,0.2)' }}>
                 <th style={{ textAlign: 'left', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 5 }}>Date</th>
                 <th style={{ textAlign: 'left', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 5, paddingLeft: 8 }}>Course</th>
+                <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 5, paddingLeft: 8 }}>Scratch</th>
+                <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 5, paddingLeft: 8 }}>Slope</th>
                 <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 5, paddingLeft: 8 }}>Gross</th>
                 <th style={{ textAlign: 'right', fontSize: 10, color: 'rgba(245,240,232,0.35)', fontWeight: 500, paddingBottom: 5, paddingLeft: 8 }}>Diff</th>
               </tr>
@@ -206,7 +208,7 @@ function HandicapHistorySection({ scores }: { scores: HandicapScore[] }) {
                   <React.Fragment key={i}>
                     {showDivider && (
                       <tr>
-                        <td colSpan={4} style={{ padding: '6px 0' }}>
+                        <td colSpan={6} style={{ padding: '6px 0' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.25)' }} />
                             <span style={{ fontSize: 9, color: 'rgba(201,168,76,0.5)', letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>spreadsheet import</span>
@@ -221,6 +223,12 @@ function HandicapHistorySection({ scores }: { scores: HandicapScore[] }) {
                       </td>
                       <td style={{ fontSize: 11, color: 'var(--cream)', paddingTop: 7, paddingBottom: 7, paddingLeft: 8 }}>
                         {s.course}
+                      </td>
+                      <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, textAlign: 'right', paddingLeft: 8, color: 'rgba(245,240,232,0.5)' }}>
+                        {s.rating}
+                      </td>
+                      <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, textAlign: 'right', paddingLeft: 8, color: 'rgba(245,240,232,0.5)' }}>
+                        {s.slope}
                       </td>
                       <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, textAlign: 'right', paddingLeft: 8 }}>
                         {s.score}
