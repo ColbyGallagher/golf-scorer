@@ -1,7 +1,7 @@
 'use client';
 
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { totalStableford, teamTotals, teamMultiplierHole, calcSkins, calcNassau, grossScore, getEffectivePlayingHandicaps } from '../../lib/scoring';
+import { totalStableford, teamTotals, teamMultiplierHole, calcBestBall, calcAggregate, stablefordPoints, calcSkins, calcNassau, grossScore, getEffectivePlayingHandicaps } from '../../lib/scoring';
 import type { PlayerId, Team } from '../../lib/types';
 import GameNav from '../_components/GameNav';
 
@@ -18,7 +18,7 @@ export default function TeamsPage() {
 
   const playingHandicaps = getEffectivePlayingHandicaps(handicaps, dailyHandicapOverrides, courseRating, slopeRating, pars);
 
-  const hasTeamFormat = activeGames.teamMultiplier || activeGames.nassau;
+  const hasTeamFormat = activeGames.teamMultiplier || activeGames.nassau || activeGames.bestBall || activeGames.aggregate;
   const teamAPlayers  = PLAYERS.filter(p => teamAssignments[p.id as PlayerId] === 'A');
   const teamBPlayers  = PLAYERS.filter(p => teamAssignments[p.id as PlayerId] === 'B');
   const teamAName     = teamAPlayers.map(p => p.name).join(' & ') || 'Team A';
@@ -60,9 +60,28 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
   teamAName: string; teamBName: string;
   teamAPlayers: typeof PLAYERS; teamBPlayers: typeof PLAYERS;
   scores: Record<PlayerId, number[]>; pars: number[]; handicaps: Record<PlayerId, number>;
-  indices: number[]; teamAssignments: Record<PlayerId, Team>; activeGames: { teamMultiplier: boolean };
+  indices: number[]; teamAssignments: Record<PlayerId, Team>;
+  activeGames: { teamMultiplier: boolean; bestBall: boolean; aggregate: boolean };
 }) {
-  const { totA, totB } = teamTotals(PLAYERS, scores, pars, handicaps, indices, teamAssignments);
+  const missingIndices = indices.length === 18 && indices.every(i => i === 0);
+
+  // Primary team score used for the leading banner + team cards.
+  // Priority: Multiplier > Best Ball > Aggregate > plain Stableford (e.g. Nassau only).
+  let totA: number, totB: number, totalLabel: string;
+  if (activeGames.teamMultiplier) {
+    const t = teamTotals(PLAYERS, scores, pars, handicaps, indices, teamAssignments);
+    totA = t.totA; totB = t.totB; totalLabel = 'Multiplier Total';
+  } else if (activeGames.bestBall) {
+    const bb = calcBestBall(PLAYERS, scores, pars, handicaps, indices, teamAssignments, missingIndices);
+    totA = bb.totA; totB = bb.totB; totalLabel = 'Best Ball Total';
+  } else if (activeGames.aggregate) {
+    const ag = calcAggregate(PLAYERS, scores, pars, handicaps, indices, teamAssignments);
+    totA = ag.totA; totB = ag.totB; totalLabel = 'Aggregate Total';
+  } else {
+    totA = teamAPlayers.reduce((s, p) => s + totalStableford(p.id as PlayerId, scores, pars, handicaps, indices), 0);
+    totB = teamBPlayers.reduce((s, p) => s + totalStableford(p.id as PlayerId, scores, pars, handicaps, indices), 0);
+    totalLabel = 'Stableford Total';
+  }
   const diff = totA - totB;
 
   return (
@@ -91,7 +110,7 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
       <div className="team-card team-a-card">
         <div className="team-name">{teamAName}</div>
         <div className="team-score-row">
-          <span className="team-score-label">Multiplier Total</span>
+          <span className="team-score-label">{totalLabel}</span>
           <span className="team-score-val" style={{ color: 'var(--team-a)' }}>{totA} pts</span>
         </div>
         {teamAPlayers.map(p => (
@@ -107,7 +126,7 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
       <div className="team-card team-b-card">
         <div className="team-name">{teamBName}</div>
         <div className="team-score-row">
-          <span className="team-score-label">Multiplier Total</span>
+          <span className="team-score-label">{totalLabel}</span>
           <span className="team-score-val" style={{ color: 'var(--team-b)' }}>{totB} pts</span>
         </div>
         {teamBPlayers.map(p => (
@@ -153,7 +172,92 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
           </div>
         </div>
       )}
+
+      {activeGames.bestBall && (
+        <TeamHoleBreakdown
+          title="⛳ Best Ball Breakdown"
+          subtitle={missingIndices ? 'Lowest gross score per hole, per team' : 'Better stableford score per hole, per team'}
+          teamAName={teamAName} teamBName={teamBName}
+          scores={scores}
+          higherWins={!missingIndices}
+          holeValue={(h, team) => {
+            const teamPs = PLAYERS.filter(p => teamAssignments[p.id as PlayerId] === team);
+            const played = teamPs.filter(p => scores[p.id as PlayerId][h] > 0);
+            if (!played.length) return null;
+            return missingIndices
+              ? Math.min(...played.map(p => scores[p.id as PlayerId][h]))
+              : Math.max(...teamPs.map(p =>
+                  stablefordPoints(scores[p.id as PlayerId][h], pars[h], p.id as PlayerId, h, handicaps, indices) ?? 0,
+                ));
+          }}
+        />
+      )}
+
+      {activeGames.aggregate && (
+        <TeamHoleBreakdown
+          title="➕ Aggregate Breakdown"
+          subtitle="Both players' stableford scores added per hole, per team"
+          teamAName={teamAName} teamBName={teamBName}
+          scores={scores}
+          higherWins
+          holeValue={(h, team) => {
+            const teamPs = PLAYERS.filter(p => teamAssignments[p.id as PlayerId] === team);
+            const played = teamPs.filter(p => scores[p.id as PlayerId][h] > 0);
+            if (!played.length) return null;
+            return played.reduce((s, p) =>
+              s + (stablefordPoints(scores[p.id as PlayerId][h], pars[h], p.id as PlayerId, h, handicaps, indices) ?? 0), 0);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+function TeamHoleBreakdown({ title, subtitle, teamAName, teamBName, scores, higherWins, holeValue }: {
+  title: string; subtitle: string;
+  teamAName: string; teamBName: string;
+  scores: Record<PlayerId, number[]>;
+  higherWins: boolean;
+  holeValue: (hole: number, team: Team) => number | null;
+}) {
+  const holes = Array.from({ length: 18 }, (_, h) => {
+    if (!PLAYERS.some(p => scores[p.id as PlayerId][h] > 0)) return null;
+    const a = holeValue(h, 'A');
+    const b = holeValue(h, 'B');
+    const winner = a !== null && b !== null
+      ? (higherWins ? (a > b ? 'A' : b > a ? 'B' : null) : (a < b ? 'A' : b < a ? 'B' : null))
+      : null;
+    return { h, a, b, winner };
+  }).filter((row): row is { h: number; a: number | null; b: number | null; winner: 'A' | 'B' | null } => row !== null);
+
+  const totA = holes.reduce((s, row) => s + (row.a ?? 0), 0);
+  const totB = holes.reduce((s, row) => s + (row.b ?? 0), 0);
+
+  return (
+    <div className="card">
+      <div className="card-title">{title}</div>
+      <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.35)', marginBottom: 7 }}>{subtitle}</div>
+      <div style={{ display: 'flex', fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(245,240,232,0.25)', marginBottom: 4, paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <span style={{ minWidth: 28 }} />
+        <span style={{ flex: 1, color: 'var(--team-a)' }}>{teamAName}</span>
+        <span style={{ flex: 1, color: 'var(--team-b)' }}>{teamBName}</span>
+      </div>
+      {holes.map(({ h, a, b, winner }) => (
+        <div key={h} style={{ display: 'flex', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 11 }}>
+          <span style={{ fontFamily: "'DM Mono', monospace", color: 'var(--gold)', minWidth: 28 }}>H{h + 1}</span>
+          <span style={{ flex: 1, fontFamily: "'DM Mono', monospace", color: winner === 'A' ? 'var(--team-a)' : 'rgba(245,240,232,0.45)' }}>
+            {a ?? '—'}
+          </span>
+          <span style={{ flex: 1, fontFamily: "'DM Mono', monospace", color: winner === 'B' ? 'var(--team-b)' : 'rgba(245,240,232,0.45)' }}>
+            {b ?? '—'}
+          </span>
+        </div>
+      ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 12, fontWeight: 700 }}>
+        <span style={{ color: 'var(--team-a)' }}>{teamAName}: {totA}</span>
+        <span style={{ color: 'var(--team-b)' }}>{teamBName}: {totB}</span>
+      </div>
+    </div>
   );
 }
 

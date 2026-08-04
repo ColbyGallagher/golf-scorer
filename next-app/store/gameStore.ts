@@ -126,7 +126,7 @@ const defaultState: GameState = {
   courseRating: 71.0,
   slopeRating: 113,
   teamAssignments: { colby: 'A', mitch: 'A', dave: 'B', scott: 'B' },
-  activeGames: { teamMultiplier: true, bestBall: false, skins: false, nassau: false, ctp: true, longDrive: true, wolf: false, gross: false, net: false },
+  activeGames: { teamMultiplier: true, bestBall: false, aggregate: false, skins: false, nassau: false, ctp: true, longDrive: true, wolf: false, gross: false, net: false },
   wolfOrder: PLAYERS.map(p => p.id),
   wolfHoles: Array(18).fill(null).map(() => ({ mode: null, partnerId: null })),
   wolfOverrides: {},

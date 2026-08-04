@@ -69,7 +69,7 @@ export default function ScoreGrid({ hole }: Props) {
     return { score, label: `${score} pts` };
   }
 
-  const showTeamScore = activeGames.teamMultiplier || activeGames.bestBall || activeGames.nassau;
+  const showTeamScore = activeGames.teamMultiplier || activeGames.bestBall || activeGames.aggregate || activeGames.nassau;
 
   return (
     <div>
