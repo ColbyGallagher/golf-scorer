@@ -201,6 +201,7 @@ export default function HistoryPage() {
               confirmDeleteId={confirmDeleteId}
               setConfirmDeleteId={setConfirmDeleteId}
               onDelete={deleteRound}
+              onAddToTour={() => setTourModal(r)}
             />
           ))
         )}
@@ -213,7 +214,7 @@ export default function HistoryPage() {
 }
 
 function RoundCard({
-  r, event, onOpen, confirmDeleteId, setConfirmDeleteId, onDelete,
+  r, event, onOpen, confirmDeleteId, setConfirmDeleteId, onDelete, onAddToTour,
 }: {
   r: HistoryRound;
   event?: TourEvent;
@@ -221,7 +222,9 @@ function RoundCard({
   confirmDeleteId: number | null;
   setConfirmDeleteId: (id: number | null) => void;
   onDelete: (id: number) => void;
+  onAddToTour: () => void;
 }) {
+  const onTour = !!(event || r.isTourRound);
   return (
     <div className="history-round" onClick={onOpen}>
       <div className="history-round-header">
@@ -258,10 +261,22 @@ function RoundCard({
             >No</button>
           </div>
         ) : (
-          <button
-            className="history-delete-btn"
-            onClick={e => { e.stopPropagation(); setConfirmDeleteId(r.id); }}
-          >🗑</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            {!onTour && (
+              <button
+                style={{
+                  fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 4, cursor: 'pointer',
+                  background: 'rgba(201,168,76,0.12)', color: 'var(--gold)', border: '1px solid rgba(201,168,76,0.35)',
+                  whiteSpace: 'nowrap',
+                }}
+                onClick={e => { e.stopPropagation(); onAddToTour(); }}
+              >🏅 Add to Tour</button>
+            )}
+            <button
+              className="history-delete-btn"
+              onClick={e => { e.stopPropagation(); setConfirmDeleteId(r.id); }}
+            >🗑</button>
+          </div>
         )}
       </div>
 
@@ -317,6 +332,10 @@ function RoundResultsTable({ r }: { r: HistoryRound }) {
   const teamBPlayers = PLAYERS.filter(p => ta[p.id] === 'B');
   const hasTeams = teamAPlayers.length > 0 && teamBPlayers.length > 0 && !isWolf;
 
+  // Round-wide CTP/LD winner: most per-hole wins, strictly ahead of everyone else (tie = no winner)
+  const ctpWinnerId = tallyCompWinner(r, 'ctp');
+  const ldWinnerId  = tallyCompWinner(r, 'ld');
+
   // Per-player computed data
   const playerData = PLAYERS.map(pl => {
     const pid = pl.id;
@@ -328,12 +347,8 @@ function RoundResultsTable({ r }: { r: HistoryRound }) {
     const threePuttCount = (r.threePutts?.[pid] ?? []).filter(Boolean).length;
     const bracketPts = gross > 0 ? netScorePoints(net) : 0;
     const threePlusCount = threePlusPoints(pid, r.scores, r.pars, r.handicaps, r.indices);
-    let ctpPts = 0, ldPts = 0;
-    for (let h = 0; h < 18; h++) {
-      const cw = r.compWinners?.[h];
-      if (cw?.ctp && cw.ctp !== 'none' && cw.ctp === pid) ctpPts += 5;
-      if (cw?.ld  && cw.ld  !== 'none' && cw.ld  === pid) ldPts  += 5;
-    }
+    const ctpPts = ctpWinnerId === pid ? 5 : 0;
+    const ldPts  = ldWinnerId  === pid ? 5 : 0;
     const teamPts = isWolf
       ? (wolfWinners.has(pid) ? 10 : 0)
       : (hasTeams && teamWinner !== null && ta[pid] === teamWinner ? 10 : 0);
@@ -451,6 +466,226 @@ function RoundResultsTable({ r }: { r: HistoryRound }) {
   );
 }
 
+// ─── Hole-by-Hole Table (full detail: every score, pts, 3-putts, CTP/LD, Wolf) ─
+
+function HoleByHoleTable({ r }: { r: HistoryRound }) {
+  const ag = r.activeGames || {};
+  const isWolf = !!(ag.wolf && r.wolfOrder?.length);
+  const wolfResults = isWolf
+    ? calcWolf(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, r.wolfOrder!, r.wolfHoles || [], r.wolfOverrides ?? {})
+    : [];
+
+  const holes = Array.from({ length: 18 }, (_, h) => h);
+  const playedHoles = holes.filter(h => PLAYERS.some(p => r.scores[p.id]?.[h] > 0));
+  const frontHoles = playedHoles.filter(h => h < 9);
+  const backHoles  = playedHoles.filter(h => h >= 9);
+
+  function playerName(pid: string) { return PLAYERS.find(p => p.id === pid)?.name ?? pid; }
+  function playerColor(pid: string) { return PLAYERS.find(p => p.id === pid)?.color ?? '#888'; }
+
+  function ptsColor(pts: number | null) {
+    if (pts === null) return 'rgba(245,240,232,0.15)';
+    if (pts >= 4) return 'var(--gold)';
+    if (pts === 3) return 'var(--green-bright)';
+    if (pts === 2) return 'var(--cream)';
+    if (pts === 1) return 'rgba(245,240,232,0.4)';
+    return 'var(--red)';
+  }
+
+  const th: React.CSSProperties = { textAlign: 'center', fontSize: 9, color: 'rgba(245,240,232,0.35)', padding: '0 3px 4px', fontWeight: 500 };
+  const td: React.CSSProperties = { textAlign: 'center', padding: '3px', verticalAlign: 'top', borderBottom: '1px solid rgba(255,255,255,0.04)' };
+
+  const ldHoles  = playedHoles.filter(h => r.compWinners?.[h]?.ld  && r.compWinners[h].ld  !== 'none');
+  const ctpHoles = playedHoles.filter(h => r.compWinners?.[h]?.ctp && r.compWinners[h].ctp !== 'none');
+  const threePuttRows = PLAYERS
+    .map(pl => ({ pl, holes: playedHoles.filter(h => r.threePutts?.[pl.id]?.[h]) }))
+    .filter(row => row.holes.length > 0);
+  const wolfHolesUsed = isWolf ? wolfResults.filter(wr => wr.mode && playedHoles.includes(wr.hole)) : [];
+
+  function sectionSum(pid: string, holesSet: number[]) {
+    const gross = holesSet.reduce((s, h) => s + (r.scores[pid]?.[h] > 0 ? r.scores[pid][h] : 0), 0);
+    const stbl  = holesSet.reduce((s, h) => {
+      const sc = r.scores[pid]?.[h] ?? 0;
+      if (!sc) return s;
+      return s + (stablefordPoints(sc, r.pars[h], pid, h, r.handicaps, r.indices) ?? 0);
+    }, 0);
+    return { gross, stbl };
+  }
+
+  const sumCell: React.CSSProperties = { ...td, background: 'rgba(201,168,76,0.06)', borderLeft: '1px solid rgba(255,255,255,0.08)', borderRight: '1px solid rgba(255,255,255,0.08)' };
+
+  return (
+    <div className="card" style={{ marginTop: 12 }}>
+      <div className="card-title">🏌️ Hole-by-Hole</div>
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: 'left', paddingLeft: 4 }}>Hole</th>
+              {frontHoles.map(h => <th key={h} style={th}>{h + 1}</th>)}
+              {frontHoles.length > 0 && <th style={{ ...th, color: 'rgba(201,168,76,0.6)' }}>Out</th>}
+              {backHoles.map(h => <th key={h} style={th}>{h + 1}</th>)}
+              {backHoles.length > 0 && <th style={{ ...th, color: 'rgba(201,168,76,0.6)' }}>In</th>}
+              <th style={{ ...th, color: 'rgba(201,168,76,0.6)' }}>Tot</th>
+            </tr>
+            <tr>
+              <td style={{ ...td, textAlign: 'left', paddingLeft: 4, color: 'rgba(245,240,232,0.35)', fontSize: 10 }}>Par</td>
+              {frontHoles.map(h => <td key={h} style={{ ...td, fontSize: 10, color: 'rgba(245,240,232,0.35)' }}>{r.pars[h]}</td>)}
+              {frontHoles.length > 0 && <td style={{ ...sumCell, fontSize: 10, color: 'rgba(245,240,232,0.35)' }}>{frontHoles.reduce((s, h) => s + r.pars[h], 0)}</td>}
+              {backHoles.map(h => <td key={h} style={{ ...td, fontSize: 10, color: 'rgba(245,240,232,0.35)' }}>{r.pars[h]}</td>)}
+              {backHoles.length > 0 && <td style={{ ...sumCell, fontSize: 10, color: 'rgba(245,240,232,0.35)' }}>{backHoles.reduce((s, h) => s + r.pars[h], 0)}</td>}
+              <td style={{ ...td, fontSize: 10, color: 'rgba(245,240,232,0.35)' }}>{playedHoles.reduce((s, h) => s + r.pars[h], 0)}</td>
+            </tr>
+            <tr>
+              <td style={{ ...td, textAlign: 'left', paddingLeft: 4, color: 'rgba(245,240,232,0.25)', fontSize: 10 }}>SI</td>
+              {frontHoles.map(h => <td key={h} style={{ ...td, fontSize: 10, color: 'rgba(245,240,232,0.25)' }}>{r.indices[h] || '–'}</td>)}
+              {frontHoles.length > 0 && <td style={{ ...sumCell, fontSize: 10 }}>–</td>}
+              {backHoles.map(h => <td key={h} style={{ ...td, fontSize: 10, color: 'rgba(245,240,232,0.25)' }}>{r.indices[h] || '–'}</td>)}
+              {backHoles.length > 0 && <td style={{ ...sumCell, fontSize: 10 }}>–</td>}
+              <td style={{ ...td, fontSize: 10 }}>–</td>
+            </tr>
+          </thead>
+          <tbody>
+            {PLAYERS.map(pl => {
+              const pid = pl.id;
+              const gross = r.scores[pid]?.reduce((s, v) => s + (v > 0 ? v : 0), 0) ?? 0;
+              const out = sectionSum(pid, frontHoles);
+              const inn = sectionSum(pid, backHoles);
+              return (
+                <tr key={pid}>
+                  <td style={{ ...td, textAlign: 'left', paddingLeft: 4 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: pl.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, color: pl.color }}>{pl.name}</span>
+                    </span>
+                  </td>
+                  {frontHoles.map(h => {
+                    const s = r.scores[pid]?.[h] ?? 0;
+                    const pts = s > 0 ? stablefordPoints(s, r.pars[h], pid, h, r.handicaps, r.indices) : null;
+                    const putt3 = !!r.threePutts?.[pid]?.[h];
+                    return (
+                      <td key={h} style={td}>
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, color: s > 0 ? 'var(--cream)' : 'rgba(245,240,232,0.15)' }}>
+                          {s > 0 ? s : '—'}
+                        </div>
+                        {s > 0 && <div style={{ fontSize: 8, color: ptsColor(pts), lineHeight: '10px' }}>{pts}</div>}
+                        {putt3 && <div style={{ fontSize: 7, color: 'var(--red)', lineHeight: '9px' }}>3P</div>}
+                      </td>
+                    );
+                  })}
+                  {frontHoles.length > 0 && (
+                    <td style={sumCell}>
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, color: out.gross > 0 ? 'var(--gold)' : 'rgba(245,240,232,0.15)' }}>
+                        {out.gross > 0 ? out.gross : '—'}
+                      </div>
+                      {out.gross > 0 && <div style={{ fontSize: 8, color: 'var(--green-bright)', lineHeight: '10px' }}>{out.stbl}</div>}
+                    </td>
+                  )}
+                  {backHoles.map(h => {
+                    const s = r.scores[pid]?.[h] ?? 0;
+                    const pts = s > 0 ? stablefordPoints(s, r.pars[h], pid, h, r.handicaps, r.indices) : null;
+                    const putt3 = !!r.threePutts?.[pid]?.[h];
+                    return (
+                      <td key={h} style={td}>
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, color: s > 0 ? 'var(--cream)' : 'rgba(245,240,232,0.15)' }}>
+                          {s > 0 ? s : '—'}
+                        </div>
+                        {s > 0 && <div style={{ fontSize: 8, color: ptsColor(pts), lineHeight: '10px' }}>{pts}</div>}
+                        {putt3 && <div style={{ fontSize: 7, color: 'var(--red)', lineHeight: '9px' }}>3P</div>}
+                      </td>
+                    );
+                  })}
+                  {backHoles.length > 0 && (
+                    <td style={sumCell}>
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, color: inn.gross > 0 ? 'var(--gold)' : 'rgba(245,240,232,0.15)' }}>
+                        {inn.gross > 0 ? inn.gross : '—'}
+                      </div>
+                      {inn.gross > 0 && <div style={{ fontSize: 8, color: 'var(--green-bright)', lineHeight: '10px' }}>{inn.stbl}</div>}
+                    </td>
+                  )}
+                  <td style={td}>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, color: gross > 0 ? 'var(--gold)' : 'rgba(245,240,232,0.15)' }}>
+                      {gross > 0 ? gross : '—'}
+                    </div>
+                    {gross > 0 && <div style={{ fontSize: 9, color: 'var(--green-bright)', lineHeight: '11px' }}>{out.stbl + inn.stbl}</div>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ fontSize: 9, color: 'rgba(245,240,232,0.25)', marginTop: 4 }}>Top: shots · middle: Stableford pts · 3P: three-putt</div>
+
+      {threePuttRows.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 600, marginBottom: 4 }}>🎯 Three-Putts</div>
+          {threePuttRows.map(({ pl, holes: hs }) => (
+            <div key={pl.id} style={{ display: 'flex', gap: 10, fontSize: 11, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
+              <span style={{ color: pl.color, width: 60, flexShrink: 0 }}>{pl.name}</span>
+              <span style={{ color: 'var(--red)', fontWeight: 600 }}>{hs.length}</span>
+              <span style={{ color: 'rgba(245,240,232,0.35)' }}>Hole{hs.length > 1 ? 's' : ''} {hs.map(h => h + 1).join(', ')}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {ldHoles.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 600, marginBottom: 4 }}>🏌️ Long Drive</div>
+          {ldHoles.map(h => {
+            const pid = r.compWinners![h].ld;
+            return (
+              <div key={h} style={{ display: 'flex', gap: 10, fontSize: 11, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                <span style={{ width: 46, color: 'rgba(245,240,232,0.35)', flexShrink: 0 }}>Hole {h + 1}</span>
+                <span style={{ color: playerColor(pid) }}>{playerName(pid)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {ctpHoles.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 600, marginBottom: 4 }}>📍 Par 3 Comp (CTP)</div>
+          {ctpHoles.map(h => {
+            const pid = r.compWinners![h].ctp;
+            return (
+              <div key={h} style={{ display: 'flex', gap: 10, fontSize: 11, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                <span style={{ width: 46, color: 'rgba(245,240,232,0.35)', flexShrink: 0 }}>Hole {h + 1} (Par {r.pars[h]})</span>
+                <span style={{ color: playerColor(pid) }}>{playerName(pid)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {isWolf && wolfHolesUsed.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 600, marginBottom: 4 }}>🐺 Wolf</div>
+          {wolfHolesUsed.map(wr => {
+            const winners = Object.entries(wr.pm).filter(([, v]) => v > 0);
+            return (
+              <div key={wr.hole} style={{ display: 'flex', gap: 8, fontSize: 11, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ width: 46, color: 'rgba(245,240,232,0.35)', flexShrink: 0 }}>Hole {wr.hole + 1}</span>
+                <span>Wolf: <span style={{ color: playerColor(wr.wolfId!) }}>{playerName(wr.wolfId!)}</span></span>
+                <span style={{ color: 'rgba(245,240,232,0.35)' }}>
+                  {wr.mode}{wr.partnerId ? ` w/ ${playerName(wr.partnerId)}` : ''}
+                </span>
+                {winners.length > 0
+                  ? winners.map(([pid, v]) => (
+                      <span key={pid} style={{ color: 'var(--green-bright)' }}>{playerName(pid)} +{v}</span>
+                    ))
+                  : <span style={{ color: 'rgba(245,240,232,0.25)' }}>push</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HistoryDetail({ round: r, event, onClose }: { round: HistoryRound; event?: TourEvent; onClose: () => void }) {
   const ta = (r.teamAssignments || {}) as Record<string, 'A' | 'B'>;
   const ag = r.activeGames || {};
@@ -520,6 +755,8 @@ function HistoryDetail({ round: r, event, onClose }: { round: HistoryRound; even
           {event ? <EventResultsTable event={event} round={r} /> : <RoundResultsTable r={r} />}
         </div>
 
+        <HoleByHoleTable r={r} />
+
         <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.3)', textAlign: 'center', marginTop: 8 }}>
           {PLAYERS.map(p => `${p.name} HCP ${r.handicaps[p.id]}`).join(' · ')}
         </div>
@@ -530,13 +767,45 @@ function HistoryDetail({ round: r, event, onClose }: { round: HistoryRound; even
 
 // ─── Tour Event Modal ─────────────────────────────────────────────────────────
 
+// Tallies per-hole comp wins (round.compWinners) and returns the outright leader.
+// A player only scores the 5 comp points if they have strictly more hole-wins
+// than everyone else — a tie (e.g. 1-1) awards no points.
+function tallyCompWinner(round: HistoryRound, field: 'ctp' | 'ld'): PlayerId | null {
+  const counts: Partial<Record<PlayerId, number>> = {};
+  for (const cw of Object.values(round.compWinners || {})) {
+    const pid = cw?.[field];
+    if (!pid || pid === 'none') continue;
+    counts[pid as PlayerId] = (counts[pid as PlayerId] ?? 0) + 1;
+  }
+  const entries = Object.entries(counts) as [PlayerId, number][];
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => b[1] - a[1]);
+  if (entries.length > 1 && entries[0][1] === entries[1][1]) return null;
+  return entries[0][0];
+}
+
+function compTallyText(round: HistoryRound, field: 'ctp' | 'ld'): string {
+  const counts: Partial<Record<PlayerId, number>> = {};
+  for (const cw of Object.values(round.compWinners || {})) {
+    const pid = cw?.[field];
+    if (!pid || pid === 'none') continue;
+    counts[pid as PlayerId] = (counts[pid as PlayerId] ?? 0) + 1;
+  }
+  const entries = Object.entries(counts) as [PlayerId, number][];
+  if (entries.length === 0) return 'no hole winners recorded';
+  entries.sort((a, b) => b[1] - a[1]);
+  const parts = entries.map(([pid, n]) => `${PLAYERS.find(p => p.id === pid)?.name ?? pid} ${n}`);
+  const tied = entries.length > 1 && entries[0][1] === entries[1][1];
+  return parts.join(' · ') + (tied ? ' — tied, no points' : '');
+}
+
 function TourEventModal({ round, onClose }: { round: HistoryRound; onClose: () => void }) {
   const PLAYER_IDS = PLAYERS.map(p => p.id as PlayerId);
   const [teamA, setTeamA] = useState<PlayerId[]>([PLAYER_IDS[0], PLAYER_IDS[1]]);
   const [teamFormat, setTeamFormat] = useState<'multiplier' | 'worstBall' | 'bestBall'>('multiplier');
   const [teamWinner, setTeamWinner] = useState<'A' | 'B' | null>(null);
-  const [ctpWinner, setCtpWinner] = useState<PlayerId | null>(null);
-  const [ldWinner, setLdWinner] = useState<PlayerId | null>(null);
+  const [ctpWinner, setCtpWinner] = useState<PlayerId | null>(() => tallyCompWinner(round, 'ctp'));
+  const [ldWinner, setLdWinner] = useState<PlayerId | null>(() => tallyCompWinner(round, 'ld'));
   const [poopWinner, setPoopWinner] = useState<PlayerId | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -703,11 +972,13 @@ function TourEventModal({ round, onClose }: { round: HistoryRound; onClose: () =
         <div style={row}>
           <span style={label}>📍 CTP winner</span>
           <PlayerChips value={ctpWinner} onChange={setCtpWinner} nullable />
+          <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.3)', marginTop: 5 }}>{compTallyText(round, 'ctp')}</div>
         </div>
 
         <div style={row}>
           <span style={label}>🏌️ LD winner</span>
           <PlayerChips value={ldWinner} onChange={setLdWinner} nullable />
+          <div style={{ fontSize: 10, color: 'rgba(245,240,232,0.3)', marginTop: 5 }}>{compTallyText(round, 'ld')}</div>
         </div>
 
         <div style={row}>
