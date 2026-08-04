@@ -33,6 +33,14 @@ function playerRounds(rounds: HistoryRound[], pid: string): HistoryRound[] {
   return rounds.filter(r => r.scores[pid]?.some(s => s > 0));
 }
 
+function whsIndexAndDelta(scores: HandicapScore[]): { index: number | null; delta: number | null } {
+  if (!scores.length) return { index: null, delta: null };
+  const current = handicapIndex(scores);
+  if (scores.length === 1) return { index: current, delta: null };
+  const previous = handicapIndex(scores.slice(0, -1));
+  return { index: current, delta: Math.round((current - previous) * 10) / 10 };
+}
+
 interface PlayerStats {
   roundsPlayed: number;
   avgPts: number | null;
@@ -95,14 +103,14 @@ function StatBox({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PlayerCard({ pid, name, color, handicap, stats, editing, onChangeHandicap, onClick }: {
-  pid: string; name: string; color: string; handicap: number;
-  stats: PlayerStats; editing: boolean;
-  onChangeHandicap: (v: number) => void;
+function PlayerCard({ pid, name, color, whsIndex, whsDelta, stats, onClick }: {
+  pid: string; name: string; color: string;
+  whsIndex: number | null; whsDelta: number | null;
+  stats: PlayerStats;
   onClick: () => void;
 }) {
   return (
-    <div className="card" onClick={!editing ? onClick : undefined} style={{ cursor: editing ? 'default' : 'pointer' }}>
+    <div className="card" onClick={onClick} style={{ cursor: 'pointer' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: stats.roundsPlayed > 0 ? 10 : 0 }}>
         <div style={{
           width: 34, height: 34, borderRadius: '50%', background: color, flexShrink: 0,
@@ -112,40 +120,36 @@ function PlayerCard({ pid, name, color, handicap, stats, editing, onChangeHandic
           {name[0]}
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 15 }}>{name}</div>
-          {!editing && <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)' }}>HCP {handicap}</div>}
-        </div>
-        {editing ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
-            <span style={{ fontSize: 10, color: 'rgba(245,240,232,0.4)' }}>HCP</span>
-            <input
-              className="hcp-input"
-              type="number"
-              step="0.1"
-              min={0}
-              max={54}
-              inputMode="decimal"
-              value={handicap}
-              onChange={e => onChangeHandicap(parseFloat(e.target.value) || 0)}
-            />
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontWeight: 600, fontSize: 15 }}>{name}</span>
+            {whsIndex !== null && (
+              <>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 20, fontWeight: 700, color: 'var(--gold)' }}>
+                  {whsIndex.toFixed(1)}
+                </span>
+                <span style={{
+                  fontSize: 11, fontWeight: 600,
+                  color: !whsDelta ? 'rgba(245,240,232,0.35)' : whsDelta > 0 ? 'var(--red)' : 'var(--green-bright)',
+                }}>
+                  {!whsDelta ? '0' : `${whsDelta > 0 ? '+' : ''}${whsDelta.toFixed(1)}`}
+                </span>
+              </>
+            )}
           </div>
-        ) : (
-          <>
-            <div style={{ textAlign: 'right', marginRight: 4 }}>
-              {stats.roundsPlayed > 0 ? (
-                <>
-                  <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)' }}>{stats.roundsPlayed} round{stats.roundsPlayed !== 1 ? 's' : ''}</div>
-                  <div style={{ fontSize: 10, color: 'var(--gold)', fontWeight: 600 }}>
-                    {stats.teamWins}TW · {stats.individualWins}IW{stats.longDriveWins > 0 ? ` · ${stats.longDriveWins}LD` : ''}
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.25)' }}>No rounds</div>
-              )}
-            </div>
-            <span style={{ color: 'rgba(245,240,232,0.25)', fontSize: 15 }}>›</span>
-          </>
-        )}
+        </div>
+        <div style={{ textAlign: 'right', marginRight: 4 }}>
+          {stats.roundsPlayed > 0 ? (
+            <>
+              <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.4)' }}>{stats.roundsPlayed} round{stats.roundsPlayed !== 1 ? 's' : ''}</div>
+              <div style={{ fontSize: 10, color: 'var(--gold)', fontWeight: 600 }}>
+                {stats.teamWins}TW · {stats.individualWins}IW{stats.longDriveWins > 0 ? ` · ${stats.longDriveWins}LD` : ''}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 11, color: 'rgba(245,240,232,0.25)' }}>No rounds</div>
+          )}
+        </div>
+        <span style={{ color: 'rgba(245,240,232,0.25)', fontSize: 15 }}>›</span>
       </div>
 
       {stats.roundsPlayed > 0 && (
@@ -384,9 +388,7 @@ export default function PlayersPage() {
   const [rounds,   setRounds]   = useState<HistoryRound[]>([]);
   const [hScores,  setHScores]  = useState<HandicapScore[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [editing,  setEditing]  = useState(false);
   const handicaps   = useGameStore(s => s.handicaps);
-  const setHandicap = useGameStore(s => s.setHandicap);
 
   useEffect(() => {
     setRounds(loadHistory());
@@ -400,33 +402,23 @@ export default function PlayersPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px 0', maxWidth: 480, margin: '0 auto' }}>
         <Link href="/setup" style={{ color: 'var(--gold)', fontSize: 18, textDecoration: 'none', lineHeight: 1 }}>←</Link>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: 'var(--gold)', margin: 0, flex: 1 }}>Players</h1>
-        <button
-          onClick={() => setEditing(e => !e)}
-          style={{
-            fontSize: 12, fontWeight: 600, padding: '4px 11px', borderRadius: 6, cursor: 'pointer',
-            background: editing ? 'rgba(34,197,94,0.15)' : 'rgba(201,168,76,0.12)',
-            border: `1px solid ${editing ? 'rgba(34,197,94,0.4)' : 'rgba(201,168,76,0.3)'}`,
-            color: editing ? 'var(--green-bright)' : 'var(--gold)',
-            fontFamily: "'DM Sans', sans-serif",
-          }}
-        >
-          {editing ? 'Done' : 'Edit Handicaps'}
-        </button>
       </div>
       <div className="card-page-wrap">
-        {PLAYERS.map(p => (
-          <PlayerCard
-            key={p.id}
-            pid={p.id}
-            name={p.name}
-            color={p.color}
-            handicap={handicaps[p.id as PlayerId]}
-            stats={computeStats(rounds, p.id)}
-            editing={editing}
-            onChangeHandicap={v => setHandicap(p.id as PlayerId, v)}
-            onClick={() => setSelected(p.id)}
-          />
-        ))}
+        {PLAYERS.map(p => {
+          const { index, delta } = whsIndexAndDelta(hScores.filter(s => s.playerId === p.id));
+          return (
+            <PlayerCard
+              key={p.id}
+              pid={p.id}
+              name={p.name}
+              color={p.color}
+              whsIndex={index}
+              whsDelta={delta}
+              stats={computeStats(rounds, p.id)}
+              onClick={() => setSelected(p.id)}
+            />
+          );
+        })}
       </div>
 
       {selectedPlayer && (
