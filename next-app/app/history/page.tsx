@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { stablefordPoints, calcWolf, calcBestBall, calcAggregate, teamTotals, getPlayingHandicap } from '../../lib/scoring';
+import { stablefordPoints, calcWolf, calcBestBall, calcWorstBall, calcAggregate, teamTotals, getPlayingHandicap } from '../../lib/scoring';
 import { netScorePoints, threePlusPoints } from '../../lib/tour';
 import type { HistoryRound } from '../../lib/db';
 import { saveRoundToCloud, syncRoundsFromCloud, deleteRoundFromCloud, saveTourEvent, addHandicapScore, fetchTourEvents } from '../../lib/db';
@@ -325,6 +325,11 @@ function RoundResultsTable({ r }: { r: HistoryRound }) {
         ? (bb.totA < bb.totB ? 'A' : bb.totB < bb.totA ? 'B' : null)
         : (bb.totA > bb.totB ? 'A' : bb.totB > bb.totA ? 'B' : null);
       teamFmt = 'Best Ball';
+    } else if (ag.worstBall) {
+      const wb = calcWorstBall(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+      teamScore = { A: wb.totA, B: wb.totB };
+      teamWinner = wb.totA > wb.totB ? 'A' : wb.totB > wb.totA ? 'B' : null;
+      teamFmt = 'Worst Ball';
     } else if (ag.aggregate) {
       const agg = calcAggregate(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
       teamScore = { A: agg.totA, B: agg.totB };
@@ -713,6 +718,9 @@ function HistoryDetail({ round: r, event, onClose }: { round: HistoryRound; even
       teamWinner = isGross
         ? (bb.totA < bb.totB ? 'A' : bb.totB < bb.totA ? 'B' : null)
         : (bb.totA > bb.totB ? 'A' : bb.totB > bb.totA ? 'B' : null);
+    } else if (ag.worstBall) {
+      const wb = calcWorstBall(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+      teamWinner = wb.totA > wb.totB ? 'A' : wb.totB > wb.totA ? 'B' : null;
     } else if (ag.aggregate) {
       const agg = calcAggregate(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
       teamWinner = agg.totA > agg.totB ? 'A' : agg.totB > agg.totA ? 'B' : null;
@@ -815,7 +823,7 @@ function computeTeamResult(r: HistoryRound): {
   teamA: PlayerId[];
   teamB: PlayerId[];
   hasTeams: boolean;
-  teamFormat: 'multiplier' | 'bestBall' | 'aggregate';
+  teamFormat: 'multiplier' | 'worstBall' | 'bestBall' | 'aggregate';
   teamWinner: 'A' | 'B' | null;
 } {
   const ta = (r.teamAssignments || {}) as Record<string, 'A' | 'B'>;
@@ -825,7 +833,7 @@ function computeTeamResult(r: HistoryRound): {
   const teamBIds = PLAYERS.filter(p => ta[p.id] === 'B').map(p => p.id as PlayerId);
   const hasTeams = teamAIds.length > 0 && teamBIds.length > 0 && !isWolf;
 
-  let teamFormat: 'multiplier' | 'bestBall' | 'aggregate' = 'multiplier';
+  let teamFormat: 'multiplier' | 'worstBall' | 'bestBall' | 'aggregate' = 'multiplier';
   let teamWinner: 'A' | 'B' | null = null;
 
   if (hasTeams) {
@@ -836,6 +844,10 @@ function computeTeamResult(r: HistoryRound): {
       teamWinner = bb.mode === 'gross'
         ? (bb.totA < bb.totB ? 'A' : bb.totB < bb.totA ? 'B' : null)
         : (bb.totA > bb.totB ? 'A' : bb.totB > bb.totA ? 'B' : null);
+    } else if (ag.worstBall) {
+      teamFormat = 'worstBall';
+      const wb = calcWorstBall(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);
+      teamWinner = wb.totA > wb.totB ? 'A' : wb.totB > wb.totA ? 'B' : null;
     } else if (ag.aggregate) {
       teamFormat = 'aggregate';
       const agg = calcAggregate(PLAYERS, r.scores, r.pars, r.handicaps, r.indices, ta);

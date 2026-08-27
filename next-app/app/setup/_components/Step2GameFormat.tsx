@@ -37,6 +37,7 @@ const GAME_SECTIONS: GameSection[] = [
     rows: [
       { emoji: '✖️', title: 'Team Multiplier', desc: 'Team totals × each other per hole', key: 'teamMultiplier' },
       { emoji: '⛳', title: 'Best Ball', desc: 'Best stableford score per hole counts for the team', key: 'bestBall' },
+      { emoji: '💀', title: 'Worst Ball', desc: 'Lowest stableford score per hole counts for the team', key: 'worstBall' },
       { emoji: '➕', title: 'Aggregate', desc: 'Sum of both team players\' stableford scores per hole', key: 'aggregate' },
       { emoji: '🐺', title: 'Wolf', desc: 'Rotating wolf — blind, alone, or pick a partner each hole', key: 'wolf' },
     ],
@@ -92,6 +93,11 @@ const GAME_INFO: Record<string, GameInfoData> = {
     intro: 'Each hole, the better stableford score of the two team players counts for the team. Team total = sum of best scores across 18 holes. Higher total wins.',
     extra: 'Without stroke indices, uses lowest gross score per hole instead (lower total wins).',
     example: 'H5: Colby 3pts, Mitch 1pt → Team A records 3pts. Dave 1pt, Scott 3pts → Team B records 3pts. Tied that hole. H6: Colby 2pts, Mitch 0pts → Team A records 2pts.',
+  },
+  'Worst Ball': {
+    title: 'Worst Ball',
+    intro: 'Each hole, the lower stableford score of the two team players counts for the team. Team total = sum of worst scores across 18 holes. Higher total wins — both players have to score well.',
+    example: 'H5: Colby 3pts, Mitch 2pts → Team A records 2pts. Dave 3pts, Scott 0pts → Team B records 0pts. Team A takes the hole 2–0.',
   },
   'Aggregate': {
     title: 'Aggregate',

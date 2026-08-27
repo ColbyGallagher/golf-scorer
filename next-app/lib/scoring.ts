@@ -147,6 +147,38 @@ export function calcBestBall(
   return { totA, totB, mode: useGross ? 'gross' : 'stableford' };
 }
 
+// ─── Worst Ball ──────────────────────────────────────────────────────────────
+
+export interface WorstBallResult {
+  totA: number;
+  totB: number;
+}
+
+// Each hole, the LOWER stableford score of the two team players counts for the
+// team. Team total = sum of worst scores across 18 holes. Higher total wins.
+export function calcWorstBall(
+  players: Player[],
+  scores: Record<string, number[]>,
+  pars: number[],
+  handicaps: Record<string, number>,
+  indices: number[],
+  teamAssignments: Record<string, 'A' | 'B'>,
+): WorstBallResult {
+  let totA = 0, totB = 0;
+  for (let h = 0; h < 18; h++) {
+    for (const team of ['A', 'B'] as const) {
+      const teamPlayers = players.filter(p => teamAssignments[p.id] === team);
+      const played = teamPlayers.filter(p => scores[p.id][h] > 0);
+      if (!played.length) continue;
+      const worst = Math.min(...played.map(p =>
+        stablefordPoints(scores[p.id][h], pars[h], p.id, h, handicaps, indices) ?? 0));
+      if (team === 'A') totA += worst;
+      else totB += worst;
+    }
+  }
+  return { totA, totB };
+}
+
 // ─── Aggregate ───────────────────────────────────────────────────────────────
 
 export interface AggregateResult {

@@ -27,6 +27,7 @@ export interface CompWinner {
 export interface ActiveGames {
   teamMultiplier: boolean;
   bestBall: boolean;
+  worstBall: boolean;
   aggregate: boolean;
   skins: boolean;
   nassau: boolean;

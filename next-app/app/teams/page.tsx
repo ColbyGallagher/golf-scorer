@@ -1,7 +1,7 @@
 'use client';
 
 import { useGameStore, PLAYERS } from '../../store/gameStore';
-import { totalStableford, teamTotals, teamMultiplierHole, calcBestBall, calcAggregate, stablefordPoints, calcSkins, calcNassau, grossScore, getEffectivePlayingHandicaps } from '../../lib/scoring';
+import { totalStableford, teamTotals, teamMultiplierHole, calcBestBall, calcWorstBall, calcAggregate, stablefordPoints, calcSkins, calcNassau, grossScore, getEffectivePlayingHandicaps } from '../../lib/scoring';
 import type { PlayerId, Team } from '../../lib/types';
 import GameNav from '../_components/GameNav';
 
@@ -18,7 +18,7 @@ export default function TeamsPage() {
 
   const playingHandicaps = getEffectivePlayingHandicaps(handicaps, dailyHandicapOverrides, courseRating, slopeRating, pars);
 
-  const hasTeamFormat = activeGames.teamMultiplier || activeGames.nassau || activeGames.bestBall || activeGames.aggregate;
+  const hasTeamFormat = activeGames.teamMultiplier || activeGames.nassau || activeGames.bestBall || activeGames.worstBall || activeGames.aggregate;
   const teamAPlayers  = PLAYERS.filter(p => teamAssignments[p.id as PlayerId] === 'A');
   const teamBPlayers  = PLAYERS.filter(p => teamAssignments[p.id as PlayerId] === 'B');
   const teamAName     = teamAPlayers.map(p => p.name).join(' & ') || 'Team A';
@@ -61,12 +61,12 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
   teamAPlayers: typeof PLAYERS; teamBPlayers: typeof PLAYERS;
   scores: Record<PlayerId, number[]>; pars: number[]; handicaps: Record<PlayerId, number>;
   indices: number[]; teamAssignments: Record<PlayerId, Team>;
-  activeGames: { teamMultiplier: boolean; bestBall: boolean; aggregate: boolean };
+  activeGames: { teamMultiplier: boolean; bestBall: boolean; worstBall: boolean; aggregate: boolean };
 }) {
   const missingIndices = indices.length === 18 && indices.every(i => i === 0);
 
   // Primary team score used for the leading banner + team cards.
-  // Priority: Multiplier > Best Ball > Aggregate > plain Stableford (e.g. Nassau only).
+  // Priority: Multiplier > Best Ball > Worst Ball > Aggregate > plain Stableford (e.g. Nassau only).
   let totA: number, totB: number, totalLabel: string;
   if (activeGames.teamMultiplier) {
     const t = teamTotals(PLAYERS, scores, pars, handicaps, indices, teamAssignments);
@@ -74,6 +74,9 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
   } else if (activeGames.bestBall) {
     const bb = calcBestBall(PLAYERS, scores, pars, handicaps, indices, teamAssignments, missingIndices);
     totA = bb.totA; totB = bb.totB; totalLabel = 'Best Ball Total';
+  } else if (activeGames.worstBall) {
+    const wb = calcWorstBall(PLAYERS, scores, pars, handicaps, indices, teamAssignments);
+    totA = wb.totA; totB = wb.totB; totalLabel = 'Worst Ball Total';
   } else if (activeGames.aggregate) {
     const ag = calcAggregate(PLAYERS, scores, pars, handicaps, indices, teamAssignments);
     totA = ag.totA; totB = ag.totB; totalLabel = 'Aggregate Total';
@@ -189,6 +192,23 @@ function TeamBlock({ teamAName, teamBName, teamAPlayers, teamBPlayers, scores, p
               : Math.max(...teamPs.map(p =>
                   stablefordPoints(scores[p.id as PlayerId][h], pars[h], p.id as PlayerId, h, handicaps, indices) ?? 0,
                 ));
+          }}
+        />
+      )}
+
+      {activeGames.worstBall && (
+        <TeamHoleBreakdown
+          title="💀 Worst Ball Breakdown"
+          subtitle="Lower stableford score per hole counts, per team"
+          teamAName={teamAName} teamBName={teamBName}
+          scores={scores}
+          higherWins
+          holeValue={(h, team) => {
+            const teamPs = PLAYERS.filter(p => teamAssignments[p.id as PlayerId] === team);
+            const played = teamPs.filter(p => scores[p.id as PlayerId][h] > 0);
+            if (!played.length) return null;
+            return Math.min(...played.map(p =>
+              stablefordPoints(scores[p.id as PlayerId][h], pars[h], p.id as PlayerId, h, handicaps, indices) ?? 0));
           }}
         />
       )}

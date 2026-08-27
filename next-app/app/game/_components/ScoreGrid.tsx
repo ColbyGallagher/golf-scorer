@@ -64,12 +64,19 @@ export default function ScoreGrid({ hole }: Props) {
       ));
       return { score, label: `${score} pts` };
     }
+    if (activeGames.worstBall) {
+      const played = teamPs.filter(p => scores[p.id as PlayerId][hole] > 0);
+      const score = Math.min(...played.map(p =>
+        stablefordPoints(scores[p.id as PlayerId][hole], par, p.id as PlayerId, hole, playingHandicaps, indices) ?? 0,
+      ));
+      return { score, label: `${score} pts` };
+    }
     const score = teamPs.reduce((sum, p) =>
       sum + (stablefordPoints(scores[p.id as PlayerId][hole], par, p.id as PlayerId, hole, playingHandicaps, indices) ?? 0), 0);
     return { score, label: `${score} pts` };
   }
 
-  const showTeamScore = activeGames.teamMultiplier || activeGames.bestBall || activeGames.aggregate || activeGames.nassau;
+  const showTeamScore = activeGames.teamMultiplier || activeGames.bestBall || activeGames.worstBall || activeGames.aggregate || activeGames.nassau;
 
   return (
     <div>

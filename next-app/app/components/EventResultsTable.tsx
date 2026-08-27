@@ -3,7 +3,7 @@
 import React from 'react';
 import { PLAYERS } from '../../store/gameStore';
 import { eventPoints } from '../../lib/tour';
-import { teamTotals, calcBestBall, calcAggregate, stablefordPoints, calcWolf } from '../../lib/scoring';
+import { teamTotals, calcBestBall, calcWorstBall, calcAggregate, stablefordPoints, calcWolf } from '../../lib/scoring';
 import type { PlayerId, TourEvent } from '../../lib/types';
 import type { HistoryRound } from '../../lib/db';
 
@@ -50,19 +50,9 @@ function calcTeamScores(event: TourEvent, round: HistoryRound): { A: number; B: 
     const t = calcAggregate(PLAYERS, round.scores, round.pars, hcps, round.indices, ta);
     return { A: t.totA, B: t.totB };
   }
-  // worstBall — min stableford per team per hole
-  let totA = 0, totB = 0;
-  for (let h = 0; h < 18; h++) {
-    for (const team of ['A', 'B'] as const) {
-      const pids = team === 'A' ? event.teamA : event.teamB;
-      const pts = pids.map(pid =>
-        stablefordPoints(round.scores[pid]?.[h] ?? 0, round.pars[h], pid, h, hcps, round.indices) ?? 0,
-      );
-      const worst = Math.min(...pts);
-      if (team === 'A') totA += worst; else totB += worst;
-    }
-  }
-  return { A: totA, B: totB };
+  // worstBall — lower stableford per team per hole
+  const t = calcWorstBall(PLAYERS, round.scores, round.pars, hcps, round.indices, ta);
+  return { A: t.totA, B: t.totB };
 }
 
 function playerGross(round: HistoryRound, pid: string): number {

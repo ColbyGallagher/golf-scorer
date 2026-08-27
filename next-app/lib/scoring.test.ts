@@ -7,6 +7,7 @@ import {
   teamTotals,
   getWolfId,
   calcWolf,
+  calcWorstBall,
   calcSkins,
   calcNassau,
   getPlayingHandicap,
@@ -175,6 +176,39 @@ describe('teamTotals', () => {
     const scores = emptyScores();
     const r = teamTotals(PLAYERS, scores, PARS, HANDICAPS, INDICES, TEAMS);
     expect(r).toEqual({ totA: 0, totB: 0 });
+  });
+});
+
+// ── calcWorstBall ────────────────────────────────────────────────────────────
+
+describe('calcWorstBall', () => {
+  it('returns zeroes when no scores', () => {
+    expect(calcWorstBall(PLAYERS, emptyScores(), PARS, HANDICAPS, INDICES, TEAMS)).toEqual({ totA: 0, totB: 0 });
+  });
+
+  it('takes the lower stableford of each team per hole and sums it', () => {
+    const scores = emptyScores();
+    // H1: par 5, SI 10 — colby 2pts (net par), mitch 3pts (gross 5 → net 4 birdie) → A worst = 2
+    //                    dave 2pts (net par), scott 0pts (gross 8) → B worst = 0
+    scores.colby[0] = 6;
+    scores.mitch[0] = 5;
+    scores.dave[0]  = 6;
+    scores.scott[0] = 8;
+    // H2: par 3, SI 8 — colby 2pts (1 stroke, gross 4 → net 3), mitch 2pts (1 stroke, gross 4) → A worst = 2
+    //                   dave 2pts (1 stroke, gross 4), scott 2pts (0 stroke, gross 3) → B worst = 2
+    scores.colby[1] = 4;
+    scores.mitch[1] = 4;
+    scores.dave[1]  = 4;
+    scores.scott[1] = 3;
+    const r = calcWorstBall(PLAYERS, scores, PARS, HANDICAPS, INDICES, TEAMS);
+    expect(r).toEqual({ totA: 4, totB: 2 });
+  });
+
+  it('ignores players on a team who have not scored the hole', () => {
+    const scores = emptyScores();
+    scores.colby[0] = 6; // 2pts, mitch unscored → A worst = 2 (not 0)
+    const r = calcWorstBall(PLAYERS, scores, PARS, HANDICAPS, INDICES, TEAMS);
+    expect(r).toEqual({ totA: 2, totB: 0 });
   });
 });
 

@@ -278,6 +278,25 @@ body {
 .sc-total { font-weight: 700; color: var(--gold); }
 .sc-par-row td { color: rgba(245,240,232,0.4); font-size: 9px; }
 .sc-idx-row td { color: rgba(245,240,232,0.25); font-size: 9px; }
+/* row-visibility toggles */
+.card-toggle-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.card-toggle { font-size: 11px; font-weight: 600; padding: 5px 11px; border-radius: 20px; cursor: pointer;
+  background: rgba(245,240,232,0.04); border: 1px solid rgba(245,240,232,0.12); color: rgba(245,240,232,0.4);
+  font-family: 'DM Sans', sans-serif; letter-spacing: 0.3px; transition: background 0.15s, border 0.15s, color 0.15s; }
+.card-toggle.on { background: rgba(34,197,94,0.14); border-color: rgba(34,197,94,0.4); color: var(--green-bright); }
+
+/* per-player name row + metric sub-rows (Gross / Net / Stbl / 3-Putt / LD / CTP) */
+.sc-player-name td { background: rgba(255,255,255,0.03); border-top: 1px solid rgba(255,255,255,0.1);
+  font-weight: 700; font-family: 'DM Sans', sans-serif; padding-top: 9px !important; padding-bottom: 6px !important; }
+.sc-metric-name { padding-left: 20px !important; }
+.sc-metric-label { color: rgba(245,240,232,0.4); font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; }
+/* team score row + team-B separator */
+.sc-team-gap td { border-top: 2px solid rgba(201,168,76,0.45); }
+.sc-team-row td { font-weight: 700; background: rgba(201,168,76,0.07); border-top: 1px solid rgba(255,255,255,0.12); border-bottom: 1px solid rgba(255,255,255,0.12); }
+.sc-team-row .sc-total { color: var(--gold); }
+.sc-team-a .sc-name { color: var(--team-a) !important; border-left: 3px solid var(--team-a); }
+.sc-team-b .sc-name { color: var(--team-b) !important; border-left: 3px solid var(--team-b); }
+@media (min-width: 640px) { .sc-metric-label { font-size: 10px; } }
 
 /* ── Landscape: stretch scorecard to full width ── */
 @media (orientation: landscape) and (max-height: 500px) {
